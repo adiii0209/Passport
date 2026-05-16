@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Langkawi Corporate Retreat - timetours</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&amp;family=Inter:wght@400;500&amp;family=Manrope:wght@500;600&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f5faff",
+                        "tertiary-fixed-dim": "#00daf3",
+                        "tertiary-fixed": "#9cf0ff",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#799dd6",
+                        "on-tertiary-container": "#00abbf",
+                        "on-background": "#151d22",
+                        "surface-bright": "#f5faff",
+                        "on-surface": "#151d22",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#eaf2f9",
+                        "secondary": "#00629e",
+                        "primary-container": "#003366",
+                        "on-primary-fixed": "#001b3c",
+                        "surface-container-highest": "#dbe4ea",
+                        "inverse-primary": "#a7c8ff",
+                        "on-surface-variant": "#43474f",
+                        "background": "#f5faff",
+                        "on-secondary-container": "#004470",
+                        "on-secondary-fixed-variant": "#004a79",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#cfe5ff",
+                        "on-primary-fixed-variant": "#1f477b",
+                        "surface-container-low": "#edf5fc",
+                        "primary-fixed": "#d5e3ff",
+                        "on-tertiary-fixed-variant": "#004f58",
+                        "on-error-container": "#93000a",
+                        "surface-dim": "#d3dbe2",
+                        "secondary-fixed-dim": "#9acbff",
+                        "surface-container-high": "#e1e9f0",
+                        "tertiary-container": "#003941",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001d34",
+                        "secondary-container": "#61b4fe",
+                        "surface-tint": "#3a5f94",
+                        "inverse-surface": "#293137",
+                        "tertiary": "#002227",
+                        "surface-variant": "#dbe4ea",
+                        "outline-variant": "#c3c6d1",
+                        "on-tertiary-fixed": "#001f24",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#e7eff6",
+                        "outline": "#737780",
+                        "primary": "#001e40",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#a7c8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "20px",
+                        "gutter": "24px",
+                        "md": "24px",
+                        "xl": "80px",
+                        "sm": "12px",
+                        "margin-desktop": "120px",
+                        "lg": "48px",
+                        "xs": "4px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Poppins"],
+                        "headline-lg-mobile": ["Poppins"],
+                        "label-sm": ["Manrope"],
+                        "body-md": ["Inter"],
+                        "label-xs": ["Manrope"],
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Poppins"],
+                        "headline-lg": ["Poppins"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "label-sm": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-xs": ["12px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.3", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .ocean-shadow {
+            box-shadow: 0 20px 40px rgba(0, 51, 102, 0.08);
+        }
+
+        .hero-gradient {
+            background: linear-gradient(to bottom, transparent 0%, rgba(245, 250, 255, 1) 95%);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+    <style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+
+<body class="bg-surface text-on-surface selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+    <!-- TopAppBar -->
+    <header
+        class="bg-surface/80 backdrop-blur-xl text-secondary docked full-width top-0 sticky border-b border-white/20 shadow-[0_20px_40px_rgba(0,51,102,0.08)] z-50 flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4">
+        <div class="flex items-center gap-4">
+            <span class="material-symbols-outlined cursor-pointer active:scale-95 transition-transform"
+                data-icon="menu">menu</span>
+            <div class="font-headline-md text-headline-md font-bold tracking-tight text-primary">timetours</div>
+        </div>
+        <div class="flex items-center gap-md">
+            <div class="hidden md:flex gap-lg">
+                <span
+                    class="font-label-sm text-label-sm text-primary cursor-pointer transition-colors hover:bg-secondary-container/30 px-3 py-1 rounded-full">Retreats</span>
+                <span
+                    class="font-label-sm text-label-sm text-on-surface-variant cursor-pointer transition-colors hover:bg-secondary-container/30 px-3 py-1 rounded-full">Gallery</span>
+                <span
+                    class="font-label-sm text-label-sm text-on-surface-variant cursor-pointer transition-colors hover:bg-secondary-container/30 px-3 py-1 rounded-full">Support</span>
+            </div>
+            <div
+                class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container shadow-sm cursor-pointer active:scale-95 transition-transform">
+                <img alt="Executive User Profile"
+                    data-alt="A professional headshot of a corporate executive in a light blue shirt, set against a soft-focus office background. The lighting is bright and airy, following a modern professional aesthetic with clean, sharp details and a friendly, trustworthy expression."
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuZVyAHAR-fJVKEx0oaCH8tq_E-Hbzv0enjYT6MPaz65sTsDwneL-f2W55H32-nFqQMuIhymM13G9rj7DeWWnqj4v4l5wO93Mpy6hUjO1mW94f2gZos8ybZGO6-biv_51vK1vzPbnIiPeKFyL3RTZy43hjRY5pdlBiR3mXt6O9AL_y12clDniInLNQ2GGmiNTGC9gnB9TzbhEvJrJqXMzpY7eHsTHNyiZu7s44dM6z2RD1PTs4RE4yeCC4AbUwSRFBUWho1XM6anA" />
+            </div>
+        </div>
+    </header>
+    <main class="relative min-h-screen">
+        <!-- Hero Section -->
+        <section class="relative h-[751px] w-full overflow-hidden">
+            <img alt="Langkawi Limestone Karsts" class="absolute inset-0 w-full h-full object-cover"
+                data-alt="A breathtaking wide-angle shot of the emerald green waters surrounding the towering limestone karst formations of Langkawi. The scene is bathed in the golden hour sunlight of late afternoon, creating deep blue shadows and brilliant turquoise highlights in the water. The mood is serene and luxurious, embodying a high-end tropical retreat with a pristine, clear sky."
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-_ZIb6bg9RAmKVncjobLSwnuTMwulY9x71X_9RSaVll5Ctvw4S3taAHz8hM-DUCmXlap1itqbE_tq7l5XX2tCr400Hsuz7QDqMJi17N-9oP14Z-vGGbIAwaZXst0toHUStjuB5dDmOwlNMfOlrc4Yn0xrkj91YyM7i2tZcpchj53CDJoJa42_QrzgAAAuwKoe3ymLwn66wND7C2canWUrOKIeHsfZ2c-x4cSSRLqFvsl28Qxqbv-v66EE77Z1QpFS80qLH1Sujlg" />
+            <div class="absolute inset-0 hero-gradient"></div>
+            <div class="relative z-10 h-full flex flex-col justify-end px-margin-mobile md:px-margin-desktop pb-xl">
+                <div class="max-w-4xl space-y-md">
+                    <span
+                        class="inline-block px-4 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm shadow-sm">EXCLUSIVE
+                        ACCESS</span>
+                    <h1 class="font-headline-xl text-headline-xl md:text-[64px] text-primary">Welcome to Langkawi</h1>
+                    <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">Your 3-day itinerary from
+                        Bengaluru to the Jewel of Kedah is ready. Experience the perfect blend of strategic planning and
+                        tropical serenity.</p>
+                    <div class="flex flex-col sm:flex-row gap-4 pt-base">
+                        <button
+                            class="px-8 py-4 bg-primary text-on-primary rounded-xl font-label-sm text-label-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95 transition-all">
+                            Start Registration
+                            <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+                        </button>
+                        <button
+                            class="px-8 py-4 glass-panel text-primary rounded-xl font-label-sm text-label-sm flex items-center justify-center gap-2 hover:bg-white/90 active:scale-95 transition-all">
+                            View Full Itinerary
+                            <span class="material-symbols-outlined" data-icon="description">description</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Bento Grid Highlights -->
+        <section class="px-margin-mobile md:px-margin-desktop py-xl">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+                <!-- Highlight 1: Hotel -->
+                <div
+                    class="md:col-span-2 glass-panel ocean-shadow rounded-[24px] p-lg flex flex-col md:flex-row gap-lg items-center">
+                    <div class="w-full md:w-1/2 h-64 rounded-xl overflow-hidden shadow-inner">
+                        <img alt="Bayview Hotel Langkawi" class="w-full h-full object-cover"
+                            data-alt="A luxury hotel exterior overlooking the ocean at sunset. The architectural style is modern with wide glass windows reflecting the orange and purple sky. Palm trees sway gently in the foreground, and the infinity pool blends into the horizon of the Bayview coast. The overall tone is calm, professional, and high-end."
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-bi7fd8YSJZ1_caDbUVZrjMTeXb3z07yixprODO0XlBKej7C0iQlwVieqCNhByrU2vpbkfvKKmo3YY0YW1Oa8l1GVVAzlTHfVstC97a40MTTzT1tfqmkL-xoizJeAEnPPLI8-lWKDF-eoz-e7AvEFXopN1OvAll1h4g50TJt12lLHFWIXJ-P-zyWEoyrkAy0G4e2hT5jBaxmvAvpJz8mu7gpDrQTzpO7Q4hEvSCi_707bRXIsopq_-jlr5UBhJrpFGMr3DlVq_sQ" />
+                    </div>
+                    <div class="w-full md:w-1/2 space-y-sm">
+                        <div class="flex items-center gap-2 text-secondary">
+                            <span class="material-symbols-outlined" data-icon="hotel">hotel</span>
+                            <span class="font-label-sm text-label-sm">ACCOMMODATION</span>
+                        </div>
+                        <h3 class="font-headline-lg text-headline-lg text-primary">Bayview Hotel Langkawi</h3>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Experience premium hospitality with
+                            panoramic sea views and state-of-the-art conference facilities tailored for corporate
+                            success.</p>
+                        <div class="pt-base">
+                            <span
+                                class="inline-flex items-center gap-1 text-on-tertiary-container bg-tertiary-fixed/30 px-3 py-1 rounded-full font-label-xs text-label-xs">
+                                <span class="material-symbols-outlined text-sm" data-icon="verified"
+                                    style="font-variation-settings: 'FILL' 1;">verified</span>
+                                Executive Tier Confirmed
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Highlight 2: Date -->
+                <div class="glass-panel ocean-shadow rounded-[24px] p-lg flex flex-col justify-between">
+                    <div class="space-y-sm">
+                        <div class="flex items-center gap-2 text-secondary">
+                            <span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+                            <span class="font-label-sm text-label-sm">SCHEDULE</span>
+                        </div>
+                        <h3 class="font-headline-lg text-headline-lg text-primary">July 3 - July 5</h3>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Three days of intensive workshops
+                            and island exploration.</p>
+                    </div>
+                    <div class="pt-lg flex justify-between items-end">
+                        <div class="flex -space-x-3">
+                            <div class="w-10 h-10 rounded-full border-2 border-white bg-slate-200"></div>
+                            <div class="w-10 h-10 rounded-full border-2 border-white bg-slate-300"></div>
+                            <div class="w-10 h-10 rounded-full border-2 border-white bg-slate-400"></div>
+                            <div
+                                class="w-10 h-10 rounded-full border-2 border-white bg-secondary flex items-center justify-center text-[10px] text-white font-bold">
+                                +12</div>
+                        </div>
+                        <span class="text-secondary font-label-xs text-label-xs">Joining the trip</span>
+                    </div>
+                </div>
+                <!-- Highlight 3: Flight -->
+                <div
+                    class="glass-panel ocean-shadow rounded-[24px] p-lg flex flex-col justify-between bg-gradient-to-br from-white/80 to-secondary-fixed/20">
+                    <div class="space-y-sm">
+                        <div class="flex items-center gap-2 text-secondary">
+                            <span class="material-symbols-outlined" data-icon="flight_takeoff">flight_takeoff</span>
+                            <span class="font-label-sm text-label-sm">TRAVEL</span>
+                        </div>
+                        <h3 class="font-headline-md text-headline-md text-primary">Round-trip with IndiGo</h3>
+                        <p class="font-body-md text-body-md text-on-surface-variant">Direct corporate charter from
+                            Bengaluru (BLR) to Langkawi (LGK).</p>
+                    </div>
+                    <div class="mt-4 p-4 bg-white/40 rounded-xl border border-white/50 space-y-2">
+                        <div class="flex justify-between font-label-xs text-label-xs text-outline">
+                            <span>DEP: 06:45 AM</span>
+                            <span>ARR: 12:15 PM</span>
+                        </div>
+                        <div class="relative h-px bg-outline-variant/30 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-secondary text-sm absolute"
+                                data-icon="flight">flight</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Highlight 4: Concierge -->
+                <div
+                    class="md:col-span-2 glass-panel ocean-shadow rounded-[24px] p-lg bg-primary-container text-white relative overflow-hidden">
+                    <div class="relative z-10 space-y-md md:w-2/3">
+                        <h3 class="font-headline-lg text-headline-lg text-tertiary-fixed">Need Assistance?</h3>
+                        <p class="font-body-md text-body-md text-blue-100 opacity-90">Our dedicated corporate concierge
+                            is available 24/7 to handle your visa documents, dietary requirements, and local transport
+                            logistics.</p>
+                        <button
+                            class="px-6 py-3 bg-tertiary-fixed text-primary font-label-sm text-label-sm rounded-lg hover:bg-tertiary-fixed-dim transition-colors">
+                            Contact Concierge
+                        </button>
+                    </div>
+                    <span
+                        class="material-symbols-outlined absolute -right-8 -bottom-8 text-[180px] text-white opacity-5 select-none"
+                        data-icon="support_agent">support_agent</span>
+                </div>
+            </div>
+        </section>
+    </main>
+    <!-- BottomNavBar (Mobile Only) -->
+    <nav
+        class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white/60 backdrop-blur-md border-t border-white/40 shadow-[0_-10px_30px_rgba(0,51,102,0.05)] rounded-t-xl">
+        <div
+            class="flex flex-col items-center justify-center bg-secondary-container/50 text-on-secondary-container rounded-xl px-4 py-1 active:scale-90 transition-all duration-200 cursor-pointer">
+            <span class="material-symbols-outlined" data-icon="home"
+                style="font-variation-settings: 'FILL' 1;">home</span>
+            <span class="font-label-xs text-label-xs">Home</span>
+        </div>
+        <div
+            class="flex flex-col items-center justify-center text-outline hover:text-primary active:scale-90 transition-all duration-200 cursor-pointer">
+            <span class="material-symbols-outlined" data-icon="cloud_upload">cloud_upload</span>
+            <span class="font-label-xs text-label-xs">Uploads</span>
+        </div>
+        <div
+            class="flex flex-col items-center justify-center text-outline hover:text-primary active:scale-90 transition-all duration-200 cursor-pointer">
+            <span class="material-symbols-outlined" data-icon="verified">verified</span>
+            <span class="font-label-xs text-label-xs">Status</span>
+        </div>
+        <div
+            class="flex flex-col items-center justify-center text-outline hover:text-primary active:scale-90 transition-all duration-200 cursor-pointer">
+            <span class="material-symbols-outlined" data-icon="help">help</span>
+            <span class="font-label-xs text-label-xs">Help</span>
+        </div>
+    </nav>
+    <footer class="mt-xl py-lg px-margin-mobile md:px-margin-desktop bg-surface-container-low border-t border-white/20">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-md">
+            <div class="font-headline-md text-headline-md font-bold text-primary/40">timetours</div>
+            <div class="flex gap-lg font-label-xs text-label-xs text-outline">
+                <span>Privacy Policy</span>
+                <span>Terms of Service</span>
+                <span>Corporate Contact</span>
+            </div>
+            <p class="font-label-xs text-label-xs text-outline-variant">© 2024 timetours Corporate Retreats. All rights
+                reserved.</p>
+        </div>
+    </footer>
+</body>
+
+</html>
