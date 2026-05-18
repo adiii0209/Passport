@@ -114,7 +114,6 @@ async function submitRegistration(req, res) {
       registrationId,
       message: 'Registration submitted successfully!',
     });
-
   } catch (error) {
     console.error('❌ Registration submission error:', error);
     res.status(500).json({

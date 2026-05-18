@@ -61,13 +61,7 @@ function formatContactNumber(value) {
 
   if (!digits) return '';
 
-  if (digits.startsWith('91') && digits.length > 10) {
-    const localDigits = digits.slice(2, 12);
-    if (localDigits.length <= 5) return `+91 ${localDigits}`.trim();
-    return `+91 ${localDigits.slice(0, 5)} ${localDigits.slice(5)}`.trim();
-  }
-
-  const localDigits = digits.slice(0, 10);
+  const localDigits = digits.length > 10 ? digits.slice(-10) : digits;
   if (localDigits.length <= 5) return localDigits;
   return `${localDigits.slice(0, 5)} ${localDigits.slice(5)}`;
 }
@@ -83,7 +77,7 @@ function useObjectUrl(file) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
-    if (!file || !file.type?.startsWith('image/')) {
+    if (!file) {
       setUrl(null);
       return undefined;
     }
@@ -306,14 +300,17 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
             <label className="form-label" htmlFor="contact_number">
               Contact Number
             </label>
-            <input
-              type="tel"
-              id="contact_number"
-              className="form-input font-mono tracking-wider"
-              placeholder="+91 99999 99999"
-              value={formData.contact_number || ''}
-              onChange={(event) => handlePhoneChange(event.target.value)}
-            />
+            <div className="contact-row">
+              <div className="contact-prefix">+91</div>
+              <input
+                type="tel"
+                id="contact_number"
+                className="form-input contact-input font-mono tracking-wider"
+                placeholder="99999 99999"
+                value={formData.contact_number || ''}
+                onChange={(event) => handlePhoneChange(event.target.value)}
+              />
+            </div>
             {errors?.contact_number && <p className="mt-1 text-xs text-red-500">{errors.contact_number}</p>}
           </div>
 

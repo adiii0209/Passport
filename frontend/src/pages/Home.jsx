@@ -65,6 +65,14 @@ const PROCESSING_STEPS = [
   'Preparing your registration form',
 ];
 
+const SUBMISSION_STEPS = [
+  'Manifesting a great trip',
+  'Summoning God for smooth travels',
+  'Communicating with satellites',
+  'Aligning every document with destiny',
+  'Preparing your final boarding vibes',
+];
+
 const PROCESSING_IMAGES = [
   'https://lh3.googleusercontent.com/aida-public/AB6AXuB-_ZIb6bg9RAmKVncjobLSwnuTMwulY9x71X_9RSaVll5Ctvw4S3taAHz8hM-DUCmXlap1itqbE_tq7l5XX2tCr400Hsuz7QDqMJi17N-9oP14Z-vGGbIAwaZXst0toHUStjuB5dDmOwlNMfOlrc4Yn0xrkj91YyM7i2tZcpchj53CDJoJa42_QrzgAAAuwKoe3ymLwn66wND7C2canWUrOKIeHsfZ2c-x4cSSRLqFvsl28Qxqbv-v66EE77Z1QpFS80qLH1Sujlg',
   'https://lh3.googleusercontent.com/aida-public/AB6AXuB-bi7fd8YSJZ1_caDbUVZrjMTeXb3z07yixprODO0XlBKej7C0iQlwVieqCNhByrU2vpbkfvKKmo3YY0YW1Oa8l1GVVAzlTHfVstC97a40MTTzT1tfqmkL-xoizJeAEnPPLI8-lWKDF-eoz-e7AvEFXopN1OvAll1h4g50TJt12lLHFWIXJ-P-zyWEoyrkAy0G4e2hT5jBaxmvAvpJz8mu7gpDrQTzpO7Q4hEvSCi_707bRXIsopq_-jlr5UBhJrpFGMr3DlVq_sQ',
@@ -374,6 +382,7 @@ const Home = () => {
   const [registrationResult, setRegistrationResult] = useState(null);
   const [processingStep, setProcessingStep] = useState(0);
   const [processingPulse, setProcessingPulse] = useState(0);
+  const [submissionStep, setSubmissionStep] = useState(0);
   const [isItineraryOpen, setIsItineraryOpen] = useState(false);
   const processingPromiseRef = useRef(null);
 
@@ -417,6 +426,21 @@ const Home = () => {
       window.clearInterval(pulseTimer);
     };
   }, [isProcessing]);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setSubmissionStep(0);
+      return undefined;
+    }
+
+    const submissionTimer = window.setInterval(() => {
+      setSubmissionStep((prev) => (prev + 1) % SUBMISSION_STEPS.length);
+    }, 1700);
+
+    return () => {
+      window.clearInterval(submissionTimer);
+    };
+  }, [isSubmitting]);
 
   useEffect(() => {
     if (currentStep !== 0) {
@@ -891,25 +915,49 @@ const Home = () => {
                 )}
 
                 {currentStep === 4 && registrationResult && (
-                  <div className="success-panel">
-                    <div className="success-icon">
-                      <HiOutlineCheckCircle />
-                    </div>
-                    <div>
-                      <h2>All Set!</h2>
-                      <p>Your registration is complete.</p>
-                      <div className="success-ref">Ref: {registrationResult.registrationId}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        getWizardStorage()?.removeItem(WIZARD_STORAGE_KEY);
-                        window.location.reload();
-                      }}
-                      className="cta-secondary"
+                  <div className="success-panel success-panel-cinematic">
+                    <video
+                      className="success-panel-video"
+                      src="/fire_vid.optimized.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="auto"
+                      aria-hidden="true"
+                    />
+                    <div className="success-panel-overlay" />
+                    <motion.div
+                      className="success-panel-content"
+                      initial={{ opacity: 0, y: 24 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.7, ease: 'easeOut' }}
                     >
-                      Start New Registration
-                    </button>
+                      <motion.div
+                        className="success-icon"
+                        initial={{ scale: 0.82, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 180, damping: 18, delay: 0.12 }}
+                      >
+                        <HiOutlineCheckCircle />
+                      </motion.div>
+                      <div>
+                        <span className="success-kicker">Registration Complete</span>
+                        <h2>All Set!</h2>
+                        <p>Your trip is locked in and the celebration has officially begun.</p>
+                        <div className="success-ref">Ref: {registrationResult.registrationId}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          getWizardStorage()?.removeItem(WIZARD_STORAGE_KEY);
+                          window.location.reload();
+                        }}
+                        className="cta-secondary success-panel-button"
+                      >
+                        Start New Registration
+                      </button>
+                    </motion.div>
                   </div>
                 )}
               </div>
@@ -1108,6 +1156,55 @@ const Home = () => {
                       ease: 'easeInOut',
                       delay: dot * 0.18,
                     }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {isSubmitting && (
+          <motion.div
+            className="processing-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="processing-modal processing-modal-submit"
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 24 }}
+            >
+              <div className="submission-orbit" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+
+              <div className="processing-copy">
+                <span className="processing-kicker">Final Submission</span>
+                <h3>We&apos;re sealing your trip</h3>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={SUBMISSION_STEPS[submissionStep]}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    {SUBMISSION_STEPS[submissionStep]}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+
+              <div className="processing-dots" aria-hidden="true">
+                {[0, 1, 2].map((dot) => (
+                  <motion.span
+                    key={dot}
+                    animate={{ y: [0, -8, 0], opacity: [0.35, 1, 0.35] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut', delay: dot * 0.18 }}
                   />
                 ))}
               </div>

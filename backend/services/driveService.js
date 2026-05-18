@@ -201,7 +201,7 @@ async function getFile(fileId) {
   const drive = getDriveClient();
   const response = await drive.files.get({
     fileId,
-    fields: 'id, name, webViewLink, webContentLink',
+    fields: 'id, name, parents, webViewLink, webContentLink',
   });
   return response.data;
 }
@@ -214,6 +214,46 @@ async function renameFileWithExistingExtension(fileId, baseName) {
   return renameFile(fileId, nextName);
 }
 
+async function createFolder(folderName, parentFolderId) {
+  const drive = getDriveClient();
+  const safeFolderName = sanitizeDriveFileLabel(folderName) || 'Registration';
+
+  const response = await drive.files.create({
+    requestBody: {
+      name: safeFolderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: parentFolderId ? [parentFolderId] : undefined,
+    },
+    fields: 'id, name, webViewLink',
+  });
+
+  console.log(`📁 Created folder: ${safeFolderName} (${response.data.id})`);
+  return response.data;
+}
+
+function getFolderLink(folderId) {
+  if (!folderId) return '';
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+async function moveFileToFolder(fileId, destinationFolderId) {
+  if (!fileId || !destinationFolderId) return null;
+
+  const drive = getDriveClient();
+  const existingFile = await getFile(fileId);
+  const previousParents = (existingFile.parents || []).join(',');
+
+  const response = await drive.files.update({
+    fileId,
+    addParents: destinationFolderId,
+    removeParents: previousParents || undefined,
+    fields: 'id, name, parents, webViewLink, webContentLink',
+  });
+
+  console.log(`📂 Moved file ${fileId} to folder ${destinationFolderId}`);
+  return response.data;
+}
+
 module.exports = {
   uploadFile,
   uploadAndConvertToDoc,
@@ -222,5 +262,8 @@ module.exports = {
   makePublic,
   renameFile,
   renameFileWithExistingExtension,
+  createFolder,
+  getFolderLink,
+  moveFileToFolder,
   sanitizeDriveFileLabel,
 };
