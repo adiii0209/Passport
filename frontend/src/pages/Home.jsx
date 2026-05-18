@@ -649,10 +649,11 @@ const Home = () => {
               <section ref={heroSectionRef} className="hero-section">
                 <video
                   className="hero-video"
-                  src="/vid.mp4"
+                  src="/vid.optimized.mp4"
                   autoPlay
                   muted
                   loop
+                  preload="auto"
                   playsInline
                   aria-label="Langkawi fire show background"
                 />
