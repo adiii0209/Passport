@@ -20,7 +20,17 @@ async function submitRegistration(req, res) {
 
   try {
     const registrationId = uuidv4().split('-')[0].toUpperCase();
-    const preserveCaseKeys = new Set(['email', 'meal_preference']);
+    const preserveCaseKeys = new Set([
+      'email',
+      'meal_preference',
+      'passportFrontId',
+      'passportBackId',
+      'panCardId',
+      'passportFrontLink',
+      'passportBackLink',
+      'panCardLink',
+      'ocrRawText',
+    ]);
     const formData = Object.fromEntries(
       Object.entries(req.body || {}).map(([key, value]) => [
         key,
