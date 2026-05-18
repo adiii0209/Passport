@@ -223,35 +223,35 @@ function loadPersistedWizardState() {
       files: {
         passport_front: persistedFiles.passport_front
           ? dataUrlToFile(
-              persistedFiles.passport_front.dataUrl,
-              persistedFiles.passport_front.name,
-              persistedFiles.passport_front.type,
-              persistedFiles.passport_front.lastModified
-            )
+            persistedFiles.passport_front.dataUrl,
+            persistedFiles.passport_front.name,
+            persistedFiles.passport_front.type,
+            persistedFiles.passport_front.lastModified
+          )
           : null,
         passport_back: persistedFiles.passport_back
           ? dataUrlToFile(
-              persistedFiles.passport_back.dataUrl,
-              persistedFiles.passport_back.name,
-              persistedFiles.passport_back.type,
-              persistedFiles.passport_back.lastModified
-            )
+            persistedFiles.passport_back.dataUrl,
+            persistedFiles.passport_back.name,
+            persistedFiles.passport_back.type,
+            persistedFiles.passport_back.lastModified
+          )
           : null,
         pan_card: persistedFiles.pan_card
           ? dataUrlToFile(
-              persistedFiles.pan_card.dataUrl,
-              persistedFiles.pan_card.name,
-              persistedFiles.pan_card.type,
-              persistedFiles.pan_card.lastModified
-            )
+            persistedFiles.pan_card.dataUrl,
+            persistedFiles.pan_card.name,
+            persistedFiles.pan_card.type,
+            persistedFiles.pan_card.lastModified
+          )
           : null,
         selfie: persistedFiles.selfie
           ? dataUrlToFile(
-              persistedFiles.selfie.dataUrl,
-              persistedFiles.selfie.name,
-              persistedFiles.selfie.type,
-              persistedFiles.selfie.lastModified
-            )
+            persistedFiles.selfie.dataUrl,
+            persistedFiles.selfie.name,
+            persistedFiles.selfie.type,
+            persistedFiles.selfie.lastModified
+          )
           : null,
       },
       formData: normalizeUppercaseRecord({ ...EMPTY_FORM_DATA, ...(parsedState.formData || {}) }),
@@ -710,7 +710,6 @@ const Home = () => {
                     }}
                     transition={{ duration: 0.8, ease: 'easeOut' }}
                   >
-                    Your 3-day itinerary from Bengaluru to the Jewel of Kedah is ready.
                     Experience the right balance of strategic planning and tropical calm.
                   </motion.p>
                 </motion.div>
