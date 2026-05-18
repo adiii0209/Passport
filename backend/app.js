@@ -13,11 +13,17 @@ const apiRoutes = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+function normalizeOrigin(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\/+$/, '');
+}
+
 function getAllowedOrigins() {
   const envOrigins = [process.env.FRONTEND_URL, process.env.ALLOWED_ORIGINS]
     .filter(Boolean)
     .flatMap((value) => String(value).split(','))
-    .map((value) => value.trim())
+    .map((value) => normalizeOrigin(value))
     .filter(Boolean);
 
   return [...new Set(envOrigins)];
@@ -28,12 +34,14 @@ const allowedOrigins = getAllowedOrigins();
 // ─── CORS Configuration ─────────────────────────────────────────
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Origin not allowed by CORS'));
+    callback(new Error(`Origin not allowed by CORS: ${origin}`));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
