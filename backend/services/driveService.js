@@ -20,6 +20,7 @@ const MIME_MAP = {
   '.gif': 'image/gif',
   '.tiff': 'image/tiff',
   '.tif': 'image/tiff',
+  '.pdf': 'application/pdf',
 };
 
 function detectMimeType(filePath) {
@@ -27,12 +28,19 @@ function detectMimeType(filePath) {
   return MIME_MAP[ext] || 'image/jpeg';
 }
 
+function sanitizeDriveFileLabel(value) {
+  return String(value || '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ─── Initialize OAuth2 Client Centralized ──────────────────
 function getDriveClient() {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    'http://localhost:3000/api/auth/google/callback'
+    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/auth/google/callback'
   );
 
   oauth2Client.setCredentials({
@@ -189,6 +197,23 @@ async function renameFile(fileId, newName) {
   }
 }
 
+async function getFile(fileId) {
+  const drive = getDriveClient();
+  const response = await drive.files.get({
+    fileId,
+    fields: 'id, name, webViewLink, webContentLink',
+  });
+  return response.data;
+}
+
+async function renameFileWithExistingExtension(fileId, baseName) {
+  const existingFile = await getFile(fileId);
+  const extension = path.extname(existingFile.name || '');
+  const safeBaseName = sanitizeDriveFileLabel(baseName) || 'Document';
+  const nextName = `${safeBaseName}${extension}`;
+  return renameFile(fileId, nextName);
+}
+
 module.exports = {
   uploadFile,
   uploadAndConvertToDoc,
@@ -196,4 +221,6 @@ module.exports = {
   deleteFile,
   makePublic,
   renameFile,
+  renameFileWithExistingExtension,
+  sanitizeDriveFileLabel,
 };

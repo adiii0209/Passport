@@ -27,14 +27,37 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter: only allow image files
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+function isAllowedDocumentFile(file) {
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+    'application/pdf',
+  ];
 
-  if (allowedTypes.includes(file.mimetype)) {
+  return allowedTypes.includes(file.mimetype);
+}
+
+function isAllowedSelfieFile(file) {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+  return allowedTypes.includes(file.mimetype);
+}
+
+// File filter: allow PDF for documents, keep selfie image-only
+const fileFilter = (req, file, cb) => {
+  const isSelfieField = file.fieldname === 'selfie';
+  const isAllowed = isSelfieField ? isAllowedSelfieFile(file) : isAllowedDocumentFile(file);
+
+  if (isAllowed) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file type: ${file.mimetype}. Only JPEG, PNG, WebP, and HEIC images are allowed.`), false);
+    const allowedMessage = isSelfieField
+      ? 'Only JPEG, PNG, WebP, and HEIC images are allowed for selfie uploads.'
+      : 'Only PDF, JPEG, PNG, WebP, and HEIC files are allowed for document uploads.';
+    cb(new Error(`Invalid file type: ${file.mimetype}. ${allowedMessage}`), false);
   }
 };
 

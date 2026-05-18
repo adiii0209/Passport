@@ -45,11 +45,45 @@ const itemVariants = {
 const sectionIconClass =
   'flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-slate-600';
 
+function normalizeUppercaseValue(value) {
+  return typeof value === 'string' ? value.toUpperCase() : value;
+}
+
+function normalizeFieldValue(key, value) {
+  if (typeof value !== 'string') return value;
+  if (key === 'email' || key === 'meal_preference') return value;
+  return normalizeUppercaseValue(value);
+}
+
+function formatContactNumber(value) {
+  const raw = String(value || '');
+  const digits = raw.replace(/\D/g, '');
+
+  if (!digits) return '';
+
+  if (digits.startsWith('91') && digits.length > 10) {
+    const localDigits = digits.slice(2, 12);
+    if (localDigits.length <= 5) return `+91 ${localDigits}`.trim();
+    return `+91 ${localDigits.slice(0, 5)} ${localDigits.slice(5)}`.trim();
+  }
+
+  const localDigits = digits.slice(0, 10);
+  if (localDigits.length <= 5) return localDigits;
+  return `${localDigits.slice(0, 5)} ${localDigits.slice(5)}`;
+}
+
+function getLiveEmailError(value) {
+  const email = String(value || '').trim();
+  if (!email) return '';
+  if (/^[^\s@]+@axxela\.in$/i.test(email)) return '';
+  return 'Enter your company email (@axxela.in)';
+}
+
 function useObjectUrl(file) {
   const [url, setUrl] = useState(null);
 
   useEffect(() => {
-    if (!file) {
+    if (!file || !file.type?.startsWith('image/')) {
       setUrl(null);
       return undefined;
     }
@@ -77,6 +111,29 @@ function DocumentPreview({ src, alt, emptyLabel }) {
   );
 }
 
+function DocumentFilePreview({ file, src, alt, emptyLabel, title }) {
+  const isImageFile = file?.type?.startsWith('image/');
+
+  if (isImageFile && src) {
+    return <DocumentPreview src={src} alt={alt} emptyLabel={emptyLabel} />;
+  }
+
+  if (file) {
+    return (
+      <div className="document-preview-frame">
+        <div className="document-preview-empty">
+          <div className="space-y-2 text-center">
+            <p className="font-semibold uppercase text-slate-700">{title}</p>
+            <p className="break-all text-xs text-slate-500">{file.name}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <DocumentPreview src={src} alt={alt} emptyLabel={emptyLabel} />;
+}
+
 function Field({ field, formData, errors, onChange }) {
   return (
     <motion.div variants={itemVariants} className={field.colSpan === 2 ? 'sm:col-span-2' : ''}>
@@ -89,7 +146,7 @@ function Field({ field, formData, errors, onChange }) {
         className={`form-input ${field.mono ? 'font-mono tracking-wider' : ''}`}
         placeholder={field.placeholder}
         value={formData[field.key] || ''}
-        onChange={(event) => onChange(field.key, event.target.value)}
+        onChange={(event) => onChange(field.key, normalizeFieldValue(field.key, event.target.value))}
       />
       {errors?.[field.key] && <p className="mt-1 text-xs text-red-500">{errors[field.key]}</p>}
     </motion.div>
@@ -103,14 +160,14 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
   const panCardUrl = useObjectUrl(files?.pan_card);
 
   const handleChange = (key, value) => {
-    onChange({ ...formData, [key]: value });
+    onChange({ ...formData, [key]: normalizeFieldValue(key, value) });
   };
 
   const handlePhoneChange = (value) => {
-    const digits = value.replace(/\D/g, '').slice(0, 10);
-    const formatted = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
-    handleChange('contact_number', formatted);
+    handleChange('contact_number', formatContactNumber(value));
   };
+
+  const liveEmailError = getLiveEmailError(formData.email);
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
@@ -141,10 +198,12 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
           </div>
         </div>
 
-        <DocumentPreview
+        <DocumentFilePreview
+          file={files?.passport_front}
           src={passportFrontUrl}
           alt="Passport front preview"
           emptyLabel="Passport front preview unavailable"
+          title="Passport Front"
         />
 
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -171,10 +230,12 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
           </div>
         </div>
 
-        <DocumentPreview
+        <DocumentFilePreview
+          file={files?.passport_back}
           src={passportBackUrl}
           alt="Passport back preview"
           emptyLabel="Passport back preview unavailable"
+          title="Passport Back"
         />
 
         <motion.div variants={itemVariants} className="mt-6">
@@ -204,7 +265,13 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
           </div>
         </div>
 
-        <DocumentPreview src={panCardUrl} alt="PAN card preview" emptyLabel="PAN card preview unavailable" />
+        <DocumentFilePreview
+          file={files?.pan_card}
+          src={panCardUrl}
+          alt="PAN card preview"
+          emptyLabel="PAN card preview unavailable"
+          title="PAN Card"
+        />
 
         <div className="mt-6">
           <label className="form-label" htmlFor="pan_number">
@@ -239,17 +306,14 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
             <label className="form-label" htmlFor="contact_number">
               Contact Number
             </label>
-            <div className="contact-row">
-              <div className="contact-prefix">+91</div>
-              <input
-                type="tel"
-                id="contact_number"
-                className="form-input contact-input font-mono tracking-wider"
-                placeholder="99999 99999"
-                value={formData.contact_number || ''}
-                onChange={(event) => handlePhoneChange(event.target.value)}
-              />
-            </div>
+            <input
+              type="tel"
+              id="contact_number"
+              className="form-input font-mono tracking-wider"
+              placeholder="+91 99999 99999"
+              value={formData.contact_number || ''}
+              onChange={(event) => handlePhoneChange(event.target.value)}
+            />
             {errors?.contact_number && <p className="mt-1 text-xs text-red-500">{errors.contact_number}</p>}
           </div>
 
@@ -261,11 +325,13 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
               type="email"
               id="email"
               className="form-input"
-              placeholder="john@example.com"
+              placeholder="name@axxela.in"
               value={formData.email || ''}
               onChange={(event) => handleChange('email', event.target.value)}
             />
-            {errors?.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+            {(liveEmailError || errors?.email) && (
+              <p className="mt-1 text-xs text-red-500">{liveEmailError || errors.email}</p>
+            )}
           </div>
 
           <div className="sm:col-span-2">

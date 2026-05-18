@@ -55,6 +55,21 @@ async function extractPassport(req, res) {
     // Step 3: Send OCR text to AI for structured extraction
     const passportData = await aiService.extractPassportDetails(ocrText);
 
+    const extractedFullName = driveService.sanitizeDriveFileLabel(passportData.full_name);
+
+    if (extractedFullName) {
+      await Promise.all([
+        driveService.renameFileWithExistingExtension(
+          frontUpload.id,
+          `${extractedFullName} Passport Front`
+        ),
+        driveService.renameFileWithExistingExtension(
+          backUpload.id,
+          `${extractedFullName} Passport Back`
+        ),
+      ]);
+    }
+
     // Step 4: Respond with extracted data and file references
     res.json({
       success: true,
@@ -104,8 +119,13 @@ async function extractPan(req, res) {
     const timestamp = Date.now();
     const tempPanName = `Pending_PAN_${timestamp}${path.extname(panFile.originalname)}`;
 
+    const requestedFullName = driveService.sanitizeDriveFileLabel(req.body.full_name);
+    const finalPanName = requestedFullName
+      ? `${requestedFullName} PAN${path.extname(panFile.originalname)}`
+      : tempPanName;
+
     // Upload original to specific Drive folder
-    const panUpload = await driveService.uploadFile(panFile.path, tempPanName, process.env.PAN_FOLDER_ID);
+    const panUpload = await driveService.uploadFile(panFile.path, finalPanName, process.env.PAN_FOLDER_ID);
 
     // Extract OCR text
     const ocrText = await ocrService.extractTextFromImage(panFile.path, 'pancard');

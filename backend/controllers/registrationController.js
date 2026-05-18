@@ -20,29 +20,43 @@ async function submitRegistration(req, res) {
 
   try {
     const registrationId = uuidv4().split('-')[0].toUpperCase();
-    const formData = req.body;
+    const preserveCaseKeys = new Set(['email', 'meal_preference']);
+    const formData = Object.fromEntries(
+      Object.entries(req.body || {}).map(([key, value]) => [
+        key,
+        typeof value === 'string' && !preserveCaseKeys.has(key) ? value.toUpperCase() : value,
+      ])
+    );
 
     console.log(`📋 Processing registration: ${registrationId}`);
 
-    const customerName = (formData.full_name || 'Unknown').replace(/\s+/g, '_');
-    const timestamp = Date.now();
+    const customerName = driveService.sanitizeDriveFileLabel(formData.full_name) || 'Unknown';
 
     // 1. Rename existing uploaded documents using proper naming convention
     if (formData.passportFrontId) {
-      await driveService.renameFile(formData.passportFrontId, `${customerName}_PassportFront_${timestamp}.jpg`);
+      await driveService.renameFileWithExistingExtension(
+        formData.passportFrontId,
+        `${customerName} Passport Front`
+      );
     }
     if (formData.passportBackId) {
-      await driveService.renameFile(formData.passportBackId, `${customerName}_PassportBack_${timestamp}.jpg`);
+      await driveService.renameFileWithExistingExtension(
+        formData.passportBackId,
+        `${customerName} Passport Back`
+      );
     }
     if (formData.panCardId) {
-      await driveService.renameFile(formData.panCardId, `${customerName}_PAN_${timestamp}.jpg`);
+      await driveService.renameFileWithExistingExtension(
+        formData.panCardId,
+        `${customerName} PAN`
+      );
     }
 
     // 2. Upload selfie to PHOTO folder
     let selfieLink = '';
     if (req.file) {
       tempFiles.push(req.file.path);
-      const selfieName = `${customerName}_Photo_${timestamp}${path.extname(req.file.originalname)}`;
+      const selfieName = `${customerName} Photo${path.extname(req.file.originalname)}`;
       const selfieUpload = await driveService.uploadFile(
         req.file.path,
         selfieName,

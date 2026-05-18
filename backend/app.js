@@ -13,9 +13,28 @@ const apiRoutes = require('./routes/api');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+function getAllowedOrigins() {
+  const envOrigins = [process.env.FRONTEND_URL, process.env.ALLOWED_ORIGINS]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(envOrigins)];
+}
+
+const allowedOrigins = getAllowedOrigins();
+
 // ─── CORS Configuration ─────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Origin not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -76,6 +95,7 @@ app.use((err, req, res, next) => {
 
 // ─── Start Server ────────────────────────────────────────────────
 app.listen(PORT, () => {
+  console.log(`Allowed CORS origins: ${allowedOrigins.join(', ') || 'all origins allowed (no FRONTEND_URL/ALLOWED_ORIGINS set)'}`);
   console.log(`
   ╔════════════════════════════════════════╗
   ║   Travel Registration API Server      ║

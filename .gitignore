@@ -1,17 +1,21 @@
 # Dependencies
 node_modules/
-server/node_modules/
+frontend/node_modules/
+backend/node_modules/
 
 # Build output
 dist/
+frontend/dist/
+.vite/
+frontend/.vite/
 
 # Environment & Secrets
-server/.env
-server/credentials.json
+backend/.env
+backend/credentials.json
 
 # Temp uploads
-server/uploads/*
-!server/uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # IDE
 .vscode/

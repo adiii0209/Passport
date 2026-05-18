@@ -17,7 +17,7 @@ import {
 import * as api from '../services/api';
 import UploadCard from '../components/UploadCard';
 import AutofillForm from '../components/AutofillForm';
-import itineraryImage from '../../image copy.png';
+import itineraryImage from '../assets/itinerary.png';
 
 const WIZARD_STORAGE_KEY = 'passport-extractor-wizard-v1';
 
@@ -94,6 +94,74 @@ const EMPTY_FORM_DATA = {
   email: '',
   meal_preference: '',
 };
+
+function normalizeUppercaseRecord(record) {
+  const preserveCaseKeys = new Set(['email', 'meal_preference']);
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      typeof value === 'string' && !preserveCaseKeys.has(key) ? value.toUpperCase() : value,
+    ])
+  );
+}
+
+function normalizeExtractedNameFields(record) {
+  const fullName = String(record.full_name || '').trim();
+  const surname = String(record.surname || '').trim();
+  let givenName = String(record.given_name || '').trim();
+
+  if (fullName) {
+    const fullParts = fullName.split(/\s+/).filter(Boolean);
+
+    if (!surname && fullParts.length > 1) {
+      record.surname = fullParts[fullParts.length - 1];
+    }
+
+    const effectiveSurname = String(record.surname || surname || '').trim();
+    if (effectiveSurname) {
+      const suffixPattern = new RegExp(`\\s+${effectiveSurname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+      const derivedGivenName = fullName.replace(suffixPattern, '').trim();
+      if (derivedGivenName) {
+        givenName = derivedGivenName;
+      }
+    } else if (fullParts.length > 0) {
+      givenName = fullName;
+    }
+  }
+
+  if (givenName) {
+    record.given_name = givenName;
+  }
+
+  return record;
+}
+
+function getFriendlyProcessingError(error) {
+  const rawMessage = String(error?.message || error || '').toLowerCase();
+
+  if (
+    rawMessage.includes('econnrefused') ||
+    rawMessage.includes('network error') ||
+    rawMessage.includes('failed to fetch') ||
+    rawMessage.includes('server is not available')
+  ) {
+    return 'The server is not available right now. Please review the details and try again in a moment.';
+  }
+
+  if (rawMessage.includes('passport')) {
+    return 'We could not read the passport clearly. Please review the details and correct any missing fields.';
+  }
+
+  if (rawMessage.includes('pan')) {
+    return 'We could not read the PAN card clearly. Please review the details and correct any missing fields.';
+  }
+
+  if (rawMessage.includes('network') || rawMessage.includes('timeout')) {
+    return 'We ran into a connection issue while checking your documents. Please review the details and try again if needed.';
+  }
+
+  return 'We could not complete the document check. Please review the details and fill in any missing information.';
+}
 
 function dataUrlToFile(dataUrl, name, type, lastModified) {
   if (!dataUrl) return null;
@@ -178,7 +246,7 @@ function loadPersistedWizardState() {
             )
           : null,
       },
-      formData: { ...EMPTY_FORM_DATA, ...(parsedState.formData || {}) },
+      formData: normalizeUppercaseRecord({ ...EMPTY_FORM_DATA, ...(parsedState.formData || {}) }),
       driveLinks: parsedState.driveLinks || {},
       ocrRawText: parsedState.ocrRawText || '',
       processingError: parsedState.processingError || null,
@@ -439,6 +507,8 @@ const Home = () => {
 
     const processingTask = (async () => {
       try {
+        await api.checkHealth(4000);
+
         const passportResult = await api.extractPassport(files.passport_front, files.passport_back);
 
         if (!passportResult.success) {
@@ -454,7 +524,8 @@ const Home = () => {
           passport_back: passportResult.files?.passport_back?.link,
         }));
 
-        const panResult = await api.extractPan(files.pan_card);
+        const extractedFullName = passportResult.data?.full_name || '';
+        const panResult = await api.extractPan(files.pan_card, extractedFullName);
 
         if (!panResult.success) {
           throw new Error(panResult.error || 'PAN extraction failed');
@@ -466,10 +537,12 @@ const Home = () => {
           pan_card: panResult.file?.link,
         }));
 
-        const extractedData = {
-          ...(passportResult.data || {}),
-          pan_number: panResult.data?.pan_number || '',
-        };
+        const extractedData = normalizeUppercaseRecord(
+          normalizeExtractedNameFields({
+            ...(passportResult.data || {}),
+            pan_number: panResult.data?.pan_number || '',
+          })
+        );
 
         setFormData((prev) => ({
           ...prev,
@@ -484,7 +557,7 @@ const Home = () => {
       } catch (error) {
         console.error('OCR processing error:', error);
         setProcessingPulse(100);
-        setProcessingError(error.message || 'Processing failed. Please try again.');
+        setProcessingError(getFriendlyProcessingError(error));
         setDocumentProcessingState('error');
         return { success: false, error };
       } finally {
@@ -501,9 +574,20 @@ const Home = () => {
     const errors = {};
     if (!formData.full_name?.trim()) errors.full_name = 'Full name is required';
     if (!formData.passport_number?.trim()) errors.passport_number = 'Passport number is required';
-    if (!formData.contact_number?.trim()) errors.contact_number = 'Contact number is required';
+    if (!formData.contact_number?.trim()) {
+      errors.contact_number = 'Contact number is required';
+    } else {
+      const contactDigits = formData.contact_number.replace(/\D/g, '');
+      const isLocalNumber = contactDigits.length === 10;
+      const isCountryCodeNumber = contactDigits.length === 12 && contactDigits.startsWith('91');
+      if (!isLocalNumber && !isCountryCodeNumber) {
+        errors.contact_number = 'Enter a valid contact number';
+      }
+    }
     if (!formData.email?.trim()) {
       errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@axxela\.in$/i.test(formData.email.trim())) {
+      errors.email = 'Enter your company mail';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Invalid email format';
     }
@@ -522,7 +606,7 @@ const Home = () => {
     try {
       toast.loading('Submitting registration...', { id: 'submit' });
       const submissionData = {
-        ...formData,
+        ...normalizeUppercaseRecord(formData),
         passportFrontId: driveLinks.passport_front_id || '',
         passportBackId: driveLinks.passport_back_id || '',
         panCardId: driveLinks.pan_card_id || '',
@@ -650,13 +734,6 @@ const Home = () => {
                       <p>Please upload your documents to start the extraction.</p>
                     </div>
 
-                    {processingError && (
-                      <div className="wizard-alert">
-                        <HiOutlineInformationCircle />
-                        <span>{processingError}</span>
-                      </div>
-                    )}
-
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       <UploadCard
                         label="Passport Front"
@@ -716,24 +793,6 @@ const Home = () => {
                       <p>Add your profile photo before moving to the verification screen.</p>
                     </div>
 
-                    {isProcessing && documentProcessingState === 'running' && !isAwaitingProcessingResult && (
-                      <div className="processing-inline-card">
-                        <div className="processing-inline-header">
-                          <HiOutlineCheckCircle />
-                          <div>
-                            <strong>Documents are processing in the background</strong>
-                            <span>{PROCESSING_STEPS[processingStep]}</span>
-                          </div>
-                        </div>
-                        <div className="processing-progress">
-                          <div
-                            className="processing-progress-bar"
-                            style={{ width: `${Math.max(8, processingPulse)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     <div className="selfie-panel">
                       <div className="selfie-panel-title">
                         <HiOutlineInformationCircle />
@@ -773,9 +832,12 @@ const Home = () => {
                           }
 
                           setIsAwaitingProcessingResult(true);
-                          await processDocuments();
-                          setIsAwaitingProcessingResult(false);
-                          goToStep(3);
+                          try {
+                            await processDocuments();
+                          } finally {
+                            setIsAwaitingProcessingResult(false);
+                            goToStep(3);
+                          }
                         }}
                         disabled={!files.selfie || isAwaitingProcessingResult}
                         className="cta-primary cta-primary-wide"

@@ -16,6 +16,8 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 async function callOpenRouter(prompt) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
+  const referer = process.env.OPENROUTER_HTTP_REFERER || process.env.FRONTEND_URL || 'http://localhost:5173';
+  const title = process.env.OPENROUTER_APP_TITLE || 'Travel Registration App';
 
   if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
     throw new Error('OpenRouter API key not configured. Set OPENROUTER_API_KEY in .env');
@@ -43,8 +45,8 @@ async function callOpenRouter(prompt) {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'http://localhost:5173',
-        'X-Title': 'Travel Registration App',
+        'HTTP-Referer': referer,
+        'X-Title': title,
         'Content-Length': Buffer.byteLength(payload),
       },
     };

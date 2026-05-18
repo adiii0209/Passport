@@ -70,11 +70,11 @@ export async function extractPassport(frontFile, backFile, onProgress) {
  * @param {Function} onProgress - Upload progress callback
  * @returns {Object} - { success, data, file, ocrText }
  */
-export async function extractPan(panFile, tempFolderId, onProgress) {
+export async function extractPan(panFile, fullName, onProgress) {
   const formData = new FormData();
   formData.append('pan_card', panFile);
-  if (tempFolderId) {
-    formData.append('tempFolderId', tempFolderId);
+  if (fullName) {
+    formData.append('full_name', fullName);
   }
 
   const response = await api.post('/extract-pan', formData, {
@@ -127,8 +127,8 @@ export async function submitRegistration(formData, selfieFile, onProgress) {
  * Health check endpoint
  * @returns {Object} - { status, timestamp, uptime }
  */
-export async function checkHealth() {
-  const response = await api.get('/health');
+export async function checkHealth(timeout = 4000) {
+  const response = await api.get('/health', { timeout });
   return response.data;
 }
 

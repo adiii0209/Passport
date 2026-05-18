@@ -6,14 +6,14 @@ import {
   HiCheck,
   HiX,
   HiOutlineCamera,
-  HiOutlinePhotograph,
+  HiOutlineDocumentText,
   HiOutlineUserCircle,
 } from 'react-icons/hi';
 import { toast } from 'react-hot-toast';
-import passportFrontPlaceholder from '../../passport front.png';
-import passportBackPlaceholder from '../../passport last.png';
-import panPlaceholder from '../../pan.png';
-import selfiePlaceholder from '../../selfie.png';
+import passportFrontPlaceholder from '../assets/passport-front.png';
+import passportBackPlaceholder from '../assets/passport-back.png';
+import panPlaceholder from '../assets/pan.png';
+import selfiePlaceholder from '../assets/selfie.png';
 
 function DocumentPlaceholder({ fieldName }) {
   if (fieldName === 'selfie') {
@@ -75,9 +75,18 @@ export default function UploadCard({
   const [preview, setPreview] = useState(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const cameraInputRef = useRef(null);
+  const isSelfie = fieldName === 'selfie';
+  const acceptedTypes = isSelfie
+    ? { 'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.heic', '.heif'] }
+    : {
+        'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.heic', '.heif'],
+        'application/pdf': ['.pdf'],
+      };
+  const isImageFile = file?.type?.startsWith('image/');
+  const isPdfFile = file?.type === 'application/pdf';
 
   useEffect(() => {
-    if (!file) {
+    if (!file || !isImageFile) {
       setPreview((currentPreview) => {
         if (currentPreview) {
           URL.revokeObjectURL(currentPreview);
@@ -98,11 +107,17 @@ export default function UploadCard({
     return () => {
       URL.revokeObjectURL(previewUrl);
     };
-  }, [file]);
+  }, [file, isImageFile]);
 
   const processFile = useCallback(
     async (originalFile) => {
       if (!originalFile) return;
+
+      if (!originalFile.type?.startsWith('image/')) {
+        onFileSelect(fieldName, originalFile);
+        return;
+      }
+
       setIsCompressing(true);
 
       try {
@@ -138,7 +153,7 @@ export default function UploadCard({
 
   const { getRootProps, getInputProps, isDragActive, open: openFilePicker, inputRef } = useDropzone({
     onDrop,
-    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.heic', '.heif'] },
+    accept: acceptedTypes,
     maxFiles: 1,
     multiple: false,
     noClick: true,
@@ -159,7 +174,7 @@ export default function UploadCard({
     }
   };
 
-  const handleOpenGallery = (event) => {
+  const handleOpenFile = (event) => {
     event.stopPropagation();
     if (inputRef.current) {
       inputRef.current.value = '';
@@ -172,9 +187,8 @@ export default function UploadCard({
     onFileSelect(fieldName, null);
   };
 
-  const hasFile = file && preview;
-  const isSelfie = fieldName === 'selfie';
-  const previewLabel = isSelfie ? 'Profile Preview' : 'Original Document Preview';
+  const hasFile = Boolean(file);
+  const previewLabel = isSelfie ? 'Profile Preview' : label.toUpperCase();
 
   return (
     <motion.div
@@ -225,7 +239,7 @@ export default function UploadCard({
                 <div className="spinner" />
                 <p className="text-sm text-slate-500">Preparing preview...</p>
               </motion.div>
-            ) : hasFile ? (
+            ) : hasFile && isImageFile ? (
               <motion.div
                 key="preview"
                 initial={{ opacity: 0, scale: 0.94 }}
@@ -234,6 +248,26 @@ export default function UploadCard({
                 className="upload-preview-live"
               >
                 <img src={preview} alt={`${label} preview`} className="upload-preview-image" />
+                <div className="preview-badge">
+                  <HiCheck /> Uploaded
+                </div>
+                <button type="button" onClick={removeFile} className="preview-remove" title="Remove">
+                  <HiX />
+                </button>
+              </motion.div>
+            ) : hasFile ? (
+              <motion.div
+                key="file-preview"
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.94 }}
+                className="upload-preview-live flex flex-col items-center justify-center gap-3 p-6 text-center"
+              >
+                <HiOutlineDocumentText className="h-12 w-12 text-slate-500" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-700">{previewLabel}</p>
+                  <p className="text-xs break-all text-slate-500">{file.name}</p>
+                </div>
                 <div className="preview-badge">
                   <HiCheck /> Uploaded
                 </div>
@@ -257,9 +291,9 @@ export default function UploadCard({
 
         <div className="dropzone-text">
           {isDragActive ? (
-            <p>Drop your image here</p>
+            <p>Drop your file here</p>
           ) : (
-            <p className="text-xs text-slate-500">Place the image clearly inside the frame and upload below</p>
+            <p className="text-xs text-slate-500">Place the file clearly inside the frame and upload below</p>
           )}
         </div>
 
@@ -275,11 +309,11 @@ export default function UploadCard({
             </button>
             <button
               type="button"
-              onClick={handleOpenGallery}
+              onClick={handleOpenFile}
               className="upload-action-btn"
             >
-              <HiOutlinePhotograph className="h-4 w-4" />
-              <span>Gallery</span>
+              <HiOutlineDocumentText className="h-4 w-4" />
+              <span>File</span>
             </button>
           </div>
         )}
