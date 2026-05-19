@@ -716,7 +716,7 @@ const Home = () => {
                     }}
                     transition={{ duration: 0.8, ease: 'easeOut' }}
                   >
-                    Experience the right balance of strategic planning and tropical calm.
+
                   </motion.p>
                 </motion.div>
               </section>
