@@ -71,6 +71,40 @@ async function ensureHeaders(spreadsheetId) {
   }
 }
 
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const match = String(dateStr).match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+  if (!match) return dateStr;
+  const [, day, month, year] = match;
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = parseInt(month, 10);
+  if (m >= 1 && m <= 12) {
+    return `${day}-${monthNames[m - 1]}-${year}`;
+  }
+  return dateStr;
+}
+
+function getISTTimestamp() {
+  const date = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(date.getTime() + istOffset);
+  
+  const day = String(istDate.getUTCDate()).padStart(2, '0');
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = monthNames[istDate.getUTCMonth()];
+  const year = istDate.getUTCFullYear();
+  
+  let hours = istDate.getUTCHours();
+  const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strHours = String(hours).padStart(2, '0');
+
+  return `${day}-${month}-${year} ${strHours}:${minutes}:${seconds} ${ampm} IST`;
+}
+
 async function appendRegistration(data) {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
@@ -84,14 +118,14 @@ async function appendRegistration(data) {
 
   const row = [
     data.registrationId || '',
-    new Date().toISOString(),
+    getISTTimestamp(),
     data.given_name || '',
     data.surname || '',
     data.full_name || '',
     data.passport_number || '',
-    data.date_of_birth || '',
-    data.date_of_issue || '',
-    data.date_of_expiry || '',
+    formatDate(data.date_of_birth),
+    formatDate(data.date_of_issue),
+    formatDate(data.date_of_expiry),
     data.place_of_birth || '',
     data.place_of_issue || '',
     data.passport_address || '',

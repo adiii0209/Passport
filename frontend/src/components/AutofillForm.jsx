@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+
+function parseDateString(dateStr) {
+  if (!dateStr) return null;
+  const match = dateStr.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10)));
+}
 import {
   HiOutlineCreditCard,
   HiOutlineIdentification,
@@ -128,7 +136,8 @@ function DocumentFilePreview({ file, src, alt, emptyLabel, title }) {
   return <DocumentPreview src={src} alt={alt} emptyLabel={emptyLabel} />;
 }
 
-function Field({ field, formData, errors, onChange }) {
+function Field({ field, formData, errors, warning, onChange }) {
+  const hasWarning = warning && !errors?.[field.key];
   return (
     <motion.div variants={itemVariants} className={field.colSpan === 2 ? 'sm:col-span-2' : ''}>
       <label className="form-label" htmlFor={field.key}>
@@ -137,12 +146,16 @@ function Field({ field, formData, errors, onChange }) {
       <input
         type="text"
         id={field.key}
-        className={`form-input ${field.mono ? 'font-mono tracking-wider' : ''}`}
+        className={`form-input ${field.mono ? 'font-mono tracking-wider' : ''} ${hasWarning ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20' : ''}`}
         placeholder={field.placeholder}
         value={formData[field.key] || ''}
         onChange={(event) => onChange(field.key, normalizeFieldValue(field.key, event.target.value))}
       />
-      {errors?.[field.key] && <p className="mt-1 text-xs text-red-500">{errors[field.key]}</p>}
+      {errors?.[field.key] ? (
+        <p className="mt-1 text-xs text-red-500">{errors[field.key]}</p>
+      ) : warning ? (
+        <p className="mt-1 text-xs text-amber-500">{warning}</p>
+      ) : null}
     </motion.div>
   );
 }
@@ -152,6 +165,34 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
   const passportFrontUrl = useObjectUrl(files?.passport_front);
   const passportBackUrl = useObjectUrl(files?.passport_back);
   const panCardUrl = useObjectUrl(files?.pan_card);
+
+  const warnings = useMemo(() => {
+    const w = {};
+    if (formData.date_of_birth) {
+      const dob = parseDateString(formData.date_of_birth);
+      if (!dob || dob.getTime() >= Date.now()) {
+        w.date_of_birth = 'Ambiguous: Date of birth should be before the current date';
+      }
+    }
+    if (formData.date_of_issue && formData.date_of_expiry) {
+      const issue = parseDateString(formData.date_of_issue);
+      const expiry = parseDateString(formData.date_of_expiry);
+      if (issue && expiry) {
+        const expected = new Date(issue.getTime());
+        expected.setUTCFullYear(expected.getUTCFullYear() + 10);
+        expected.setUTCDate(expected.getUTCDate() - 1);
+        if (expiry.getTime() !== expected.getTime()) {
+          w.date_of_expiry = 'Ambiguous: Expiry is typically 10 years minus 1 day from Issue';
+        }
+      }
+    }
+    if (formData.pan_number) {
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(formData.pan_number)) {
+        w.pan_number = 'Ambiguous: Format must be 5 letters, 4 numbers, 1 letter';
+      }
+    }
+    return w;
+  }, [formData.date_of_birth, formData.date_of_issue, formData.date_of_expiry, formData.pan_number]);
 
   const handleChange = (key, value) => {
     onChange({ ...formData, [key]: normalizeFieldValue(key, value) });
@@ -207,6 +248,7 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
               field={field}
               formData={formData}
               errors={errors}
+              warning={warnings[field.key]}
               onChange={handleChange}
             />
           ))}
@@ -274,13 +316,17 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
           <input
             type="text"
             id="pan_number"
-            className="form-input max-w-xs font-mono uppercase tracking-[0.2em]"
+            className={`form-input max-w-xs font-mono uppercase tracking-[0.2em] ${warnings.pan_number && !errors?.pan_number ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20' : ''}`}
             placeholder="ABCDE1234F"
             value={formData.pan_number || ''}
             onChange={(event) => handleChange('pan_number', event.target.value.toUpperCase())}
             maxLength={10}
           />
-          {errors?.pan_number && <p className="mt-1 text-xs text-red-500">{errors.pan_number}</p>}
+          {errors?.pan_number ? (
+            <p className="mt-1 text-xs text-red-500">{errors.pan_number}</p>
+          ) : warnings?.pan_number ? (
+            <p className="mt-1 text-xs text-amber-500">{warnings.pan_number}</p>
+          ) : null}
         </div>
       </motion.div>
 

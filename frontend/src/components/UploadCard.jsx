@@ -113,6 +113,11 @@ export default function UploadCard({
     async (originalFile) => {
       if (!originalFile) return;
 
+      if (originalFile.type === 'application/pdf' && originalFile.size > 5 * 1024 * 1024) {
+        toast.error(`PDF size limit is 5MB`);
+        return;
+      }
+
       if (!originalFile.type?.startsWith('image/')) {
         onFileSelect(fieldName, originalFile);
         return;

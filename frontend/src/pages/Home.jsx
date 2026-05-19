@@ -386,6 +386,12 @@ const Home = () => {
   const [isItineraryOpen, setIsItineraryOpen] = useState(false);
   const processingPromiseRef = useRef(null);
 
+  useEffect(() => {
+    if (currentStep === 4 && !registrationResult) {
+      navigate('/');
+    }
+  }, [currentStep, registrationResult, navigate]);
+
   const handleFileSelect = useCallback((fieldName, file) => {
     setFiles((prev) => ({ ...prev, [fieldName]: file }));
 
@@ -950,7 +956,7 @@ const Home = () => {
                         type="button"
                         onClick={() => {
                           getWizardStorage()?.removeItem(WIZARD_STORAGE_KEY);
-                          window.location.reload();
+                          window.location.href = '/';
                         }}
                         className="cta-secondary success-panel-button"
                       >
