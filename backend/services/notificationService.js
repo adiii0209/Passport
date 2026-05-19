@@ -1,9 +1,7 @@
-const nodemailer = require('nodemailer');
-
 async function sendNotification(data) {
   const message = `🎉 New Registration Submitted!\n\nName: ${data.full_name}\nPassport: ${data.passport_number}\nEmail: ${data.email}\nRef ID: ${data.registrationId}`;
   
-  // 1. Webhook Notification (Slack/Discord/Teams)
+  // Webhook Notification (Slack/Discord/Teams)
   if (process.env.WEBHOOK_URL) {
     try {
       await fetch(process.env.WEBHOOK_URL, {
@@ -15,37 +13,6 @@ async function sendNotification(data) {
     } catch (err) {
       console.error('⚠️ Failed to send webhook:', err.message);
     }
-  }
-
-  // 2. Email Notification (Nodemailer)
-  if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.NOTIFICATION_EMAIL) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // upgrade later with STARTTLS
-        family: 4, // Force IPv4 to fix ENETUNREACH issues
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
-      });
-
-      await transporter.sendMail({
-        from: `"Registration Portal" <${process.env.SMTP_USER}>`,
-        to: process.env.NOTIFICATION_EMAIL,
-        subject: `New Registration: ${data.full_name || 'Traveler'}`,
-        text: message,
-      });
-      console.log('✅ Email notification sent');
-    } catch (err) {
-      console.error('⚠️ Failed to send email:', err.message);
-    }
-  } else {
-    console.log('ℹ️ Email notification skipped: Missing SMTP_USER, SMTP_PASS, or NOTIFICATION_EMAIL in environment variables.');
   }
 }
 
