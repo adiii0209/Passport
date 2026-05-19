@@ -66,11 +66,11 @@ const PROCESSING_STEPS = [
 ];
 
 const SUBMISSION_STEPS = [
-  'Manifesting a great trip',
-  'Summoning God for smooth travels',
-  'Communicating with satellites',
-  'Aligning every document with destiny',
-  'Preparing your final boarding vibes',
+  'Cooking up your trip',
+  'Loading vacation mode',
+  'Sorting your travel chaos',
+  'Making your passport feel useful',
+  'Getting your boarding vibes ready',
 ];
 
 const PROCESSING_IMAGES = [
