@@ -170,22 +170,30 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
     const w = {};
     if (formData.date_of_birth) {
       const dob = parseDateString(formData.date_of_birth);
-      if (!dob || dob.getTime() >= Date.now()) {
+      if (!dob) {
+        w.date_of_birth = 'Ambiguous: Invalid date format (DD-MM-YYYY)';
+      } else if (dob.getTime() >= Date.now()) {
         w.date_of_birth = 'Ambiguous: Date of birth should be before the current date';
       }
     }
-    if (formData.date_of_issue && formData.date_of_expiry) {
-      const issue = parseDateString(formData.date_of_issue);
+    
+    if (formData.date_of_expiry) {
       const expiry = parseDateString(formData.date_of_expiry);
-      if (issue && expiry) {
-        const expected = new Date(issue.getTime());
-        expected.setUTCFullYear(expected.getUTCFullYear() + 10);
-        expected.setUTCDate(expected.getUTCDate() - 1);
-        if (expiry.getTime() !== expected.getTime()) {
-          w.date_of_expiry = 'Ambiguous: Expiry is typically 10 years minus 1 day from Issue';
+      if (!expiry) {
+        w.date_of_expiry = 'Ambiguous: Invalid date format (DD-MM-YYYY)';
+      } else if (formData.date_of_issue) {
+        const issue = parseDateString(formData.date_of_issue);
+        if (issue) {
+          const expected = new Date(issue.getTime());
+          expected.setUTCFullYear(expected.getUTCFullYear() + 10);
+          expected.setUTCDate(expected.getUTCDate() - 1);
+          if (expiry.getTime() !== expected.getTime()) {
+            w.date_of_expiry = 'Ambiguous: Expiry is typically 10 years minus 1 day from Issue';
+          }
         }
       }
     }
+    
     if (formData.pan_number) {
       if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(formData.pan_number)) {
         w.pan_number = 'Ambiguous: Format must be 5 letters, 4 numbers, 1 letter';
