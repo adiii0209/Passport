@@ -22,8 +22,8 @@ async function sendNotification(data) {
     try {
       const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
+        port: 587,
+        secure: false, // upgrade later with STARTTLS
         family: 4, // Force IPv4 to fix ENETUNREACH issues
         auth: {
           user: process.env.SMTP_USER,
@@ -44,6 +44,8 @@ async function sendNotification(data) {
     } catch (err) {
       console.error('⚠️ Failed to send email:', err.message);
     }
+  } else {
+    console.log('ℹ️ Email notification skipped: Missing SMTP_USER, SMTP_PASS, or NOTIFICATION_EMAIL in environment variables.');
   }
 }
 
