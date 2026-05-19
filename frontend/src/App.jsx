@@ -4,6 +4,7 @@
  */
 
 import { Toaster } from 'react-hot-toast';
+import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home';
 
 function App() {
@@ -33,6 +34,9 @@ function App() {
 
       {/* Main content */}
       <Home />
+
+      {/* Vercel Web Analytics */}
+      <Analytics />
     </>
   );
 }
