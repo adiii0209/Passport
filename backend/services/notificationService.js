@@ -21,11 +21,17 @@ async function sendNotification(data) {
   if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.NOTIFICATION_EMAIL) {
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        family: 4, // Force IPv4 to fix ENETUNREACH issues
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       await transporter.sendMail({
