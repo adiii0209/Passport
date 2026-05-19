@@ -9,6 +9,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const driveService = require('../services/driveService');
 const sheetsService = require('../services/sheetsService');
+const notificationService = require('../services/notificationService');
 
 /**
  * POST /api/submit-registration
@@ -106,6 +107,9 @@ async function submitRegistration(req, res) {
 
     // Save to Google Sheets
     await sheetsService.appendRegistration(registrationRecord);
+
+    // Send Notification (non-blocking)
+    notificationService.sendNotification(registrationRecord).catch(err => console.error(err));
 
     console.log(`✅ Registration ${registrationId} completed successfully`);
 
