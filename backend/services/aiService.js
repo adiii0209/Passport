@@ -88,25 +88,26 @@ async function callOpenRouter(prompt) {
  * @returns {Object} - Extracted passport fields
  */
 async function extractPassportDetails(ocrText) {
-  const prompt = `Extract passport details from OCR text.
+  const prompt = `You are a precise passport details parser. Extract structured details from the provided OCR text.
 
-Return ONLY valid JSON. No markdown, no code fences, no extra text.
+Return ONLY a valid JSON object. No markdown, no code fences, no extra text.
 
-Fields:
-- given_name
-- surname
-- full_name
-- passport_number
-- date_of_birth
-- date_of_issue
-- date_of_expiry
+Required JSON Fields:
+- given_name (Given name(s) of the traveler. Look for "Given Name" / "दिया गया नाम" or the MRZ line)
+- surname (Surname of the traveler. Look for "Surname" / "उपनाम" or the MRZ line)
+- full_name (Combined Given Name + Surname, e.g. "TISHA SAMSUKHA")
+- passport_number (Look for "Passport No." or the 8-character string e.g. "AH759807")
+- date_of_birth (Normalize to DD-MM-YYYY)
+- date_of_issue (Normalize to DD-MM-YYYY)
+- date_of_expiry (Normalize to DD-MM-YYYY)
 - place_of_birth
 - place_of_issue
 - passport_address
 
-If a field is missing return null.
-
-Normalize all dates to DD-MM-YYYY.
+CRITICAL INSTRUCTIONS FOR NAMES:
+1. Look at the Machine Readable Zone (MRZ) at the bottom starting with "P<". The first line always follows the format "P<IND[SURNAME]<<[GIVEN_NAME]<<<<...". This is highly structured and serves as the source of truth for the traveler's name.
+2. Cross-reference this MRZ line with the "Surname / उपनाम" and "Given Name(s) / दिया गया नाम" labels.
+3. DO NOT extract random noise, signatures (like "IKHAIL AUKHA"), or parental names (like "PANKAJ SAMSUKHA") as the main traveler's given name or full name.
 
 OCR TEXT:
 ${ocrText}`;
