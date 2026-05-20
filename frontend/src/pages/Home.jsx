@@ -550,8 +550,10 @@ const Home = () => {
           ...prev,
           passport_front_id: passportResult.files?.passport_front?.id,
           passport_back_id: passportResult.files?.passport_back?.id,
+          passport_merged_id: passportResult.files?.passport_merged?.id,
           passport_front: passportResult.files?.passport_front?.link,
           passport_back: passportResult.files?.passport_back?.link,
+          passport_merged: passportResult.files?.passport_merged?.link,
         }));
 
         const extractedFullName = passportResult.data?.full_name || '';
@@ -639,9 +641,11 @@ const Home = () => {
         ...normalizeUppercaseRecord(formData),
         passportFrontId: driveLinks.passport_front_id || '',
         passportBackId: driveLinks.passport_back_id || '',
+        passportMergedId: driveLinks.passport_merged_id || '',
         panCardId: driveLinks.pan_card_id || '',
         passportFrontLink: driveLinks.passport_front || '',
         passportBackLink: driveLinks.passport_back || '',
+        passportMergedLink: driveLinks.passport_merged || '',
         panCardLink: driveLinks.pan_card || '',
         ocrRawText,
       };

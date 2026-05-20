@@ -254,6 +254,62 @@ async function moveFileToFolder(fileId, destinationFolderId) {
   return response.data;
 }
 
+let cachedMergedFolderId = null;
+
+async function getOrCreateMergedFolder(frontFolderId) {
+  if (process.env.PASSPORT_MERGED_FOLDER_ID) {
+    return process.env.PASSPORT_MERGED_FOLDER_ID;
+  }
+  if (cachedMergedFolderId) {
+    return cachedMergedFolderId;
+  }
+
+  let parentFolderId = null;
+  if (frontFolderId) {
+    try {
+      const frontFolder = await getFile(frontFolderId);
+      if (frontFolder.parents && frontFolder.parents.length > 0) {
+        parentFolderId = frontFolder.parents[0];
+      }
+    } catch (e) {
+      console.warn(`⚠️ Could not retrieve parents of front folder ${frontFolderId}:`, e.message);
+    }
+  }
+
+  const drive = getDriveClient();
+  const queryParts = [
+    "mimeType = 'application/vnd.google-apps.folder'",
+    "name = 'Passport Merged'",
+    "trashed = false"
+  ];
+  if (parentFolderId) {
+    queryParts.push(`'${parentFolderId}' in parents`);
+  }
+  const query = queryParts.join(' and ');
+
+  try {
+    const listResponse = await drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+      pageSize: 1,
+    });
+
+    if (listResponse.data.files && listResponse.data.files.length > 0) {
+      const existingFolder = listResponse.data.files[0];
+      console.log(`📁 Found existing Passport Merged folder: ${existingFolder.name} (${existingFolder.id})`);
+      cachedMergedFolderId = existingFolder.id;
+      return existingFolder.id;
+    }
+
+    const newFolder = await createFolder('Passport Merged', parentFolderId);
+    cachedMergedFolderId = newFolder.id;
+    return newFolder.id;
+  } catch (error) {
+    console.error('❌ Failed to get or create Passport Merged folder:', error.message);
+    throw new Error(`Failed to get or create Passport Merged folder: ${error.message}`);
+  }
+}
+
 module.exports = {
   uploadFile,
   uploadAndConvertToDoc,
@@ -266,4 +322,6 @@ module.exports = {
   getFolderLink,
   moveFileToFolder,
   sanitizeDriveFileLabel,
+  getOrCreateMergedFolder,
 };
+

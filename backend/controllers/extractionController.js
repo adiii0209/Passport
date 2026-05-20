@@ -9,6 +9,7 @@ const path = require('path');
 const driveService = require('../services/driveService');
 const ocrService = require('../services/ocrService');
 const aiService = require('../services/aiService');
+const pdfMergeService = require('../services/pdfMergeService');
 
 /**
  * POST /api/extract-passport
@@ -30,18 +31,25 @@ async function extractPassport(req, res) {
 
     const frontFile = files.passport_front[0];
     const backFile = files.passport_back[0];
-    tempFiles.push(frontFile.path, backFile.path);
+    const tempMergedPath = path.join(path.dirname(frontFile.path), `Merged_Passport_${Date.now()}.pdf`);
+    tempFiles.push(frontFile.path, backFile.path, tempMergedPath);
 
     console.log('📤 Processing passport images...');
 
     const timestamp = Date.now();
     const tempFrontName = `Pending_PassportFront_${timestamp}${path.extname(frontFile.originalname)}`;
     const tempBackName = `Pending_PassportBack_${timestamp}${path.extname(backFile.originalname)}`;
+    const tempMergedName = `Pending_PassportMerged_${timestamp}.pdf`;
 
-    // Step 1: Upload originals to specific Drive folders (we'll rename them on final submission)
-    const [frontUpload, backUpload] = await Promise.all([
+    // Merge front and back into PDF
+    await pdfMergeService.mergeToPdf(frontFile.path, backFile.path, tempMergedPath);
+    const mergedFolderId = await driveService.getOrCreateMergedFolder(process.env.PASSPORT_FRONT_FOLDER_ID);
+
+    // Step 1: Upload originals and merged PDF to specific Drive folders (we'll rename them on final submission)
+    const [frontUpload, backUpload, mergedUpload] = await Promise.all([
       driveService.uploadFile(frontFile.path, tempFrontName, process.env.PASSPORT_FRONT_FOLDER_ID),
       driveService.uploadFile(backFile.path, tempBackName, process.env.PASSPORT_BACK_FOLDER_ID),
+      driveService.uploadFile(tempMergedPath, tempMergedName, mergedFolderId),
     ]);
 
     // Step 2: Extract OCR text from both images (this handles the temp Doc internally)
@@ -67,6 +75,10 @@ async function extractPassport(req, res) {
           backUpload.id,
           `${extractedFullName} Passport Back`
         ),
+        driveService.renameFileWithExistingExtension(
+          mergedUpload.id,
+          `${extractedFullName} Passport Merged`
+        ),
       ]);
     }
 
@@ -77,6 +89,7 @@ async function extractPassport(req, res) {
       files: {
         passport_front: { id: frontUpload.id, link: frontUpload.webViewLink },
         passport_back: { id: backUpload.id, link: backUpload.webViewLink },
+        passport_merged: { id: mergedUpload.id, link: mergedUpload.webViewLink },
       },
       ocrText,
     });

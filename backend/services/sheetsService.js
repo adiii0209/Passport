@@ -40,6 +40,7 @@ const HEADERS = [
   'Meal Preference',
   'Passport Front Link',
   'Passport Back Link',
+  'Passport Merged Link',
   'PAN Card Link',
   'Selfie Link',
   'User Folder Link',
@@ -51,7 +52,7 @@ async function ensureHeaders(spreadsheetId) {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A1:V1',
+      range: 'Sheet1!A1:W1',
     });
 
     // If no data or empty, write headers
@@ -135,6 +136,7 @@ async function appendRegistration(data) {
     data.meal_preference || '',
     data.passportFrontLink || '',
     data.passportBackLink || '',
+    data.passportMergedLink || '',
     data.panCardLink || '',
     data.selfieLink || '',
     data.userFolderLink || '',
@@ -145,7 +147,7 @@ async function appendRegistration(data) {
   try {
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Sheet1!A:V',
+      range: 'Sheet1!A:W',
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {

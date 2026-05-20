@@ -26,9 +26,11 @@ async function submitRegistration(req, res) {
       'meal_preference',
       'passportFrontId',
       'passportBackId',
+      'passportMergedId',
       'panCardId',
       'passportFrontLink',
       'passportBackLink',
+      'passportMergedLink',
       'panCardLink',
       'ocrRawText',
     ]);
@@ -56,6 +58,12 @@ async function submitRegistration(req, res) {
         `${customerName} Passport Back`
       );
     }
+    if (formData.passportMergedId) {
+      await driveService.renameFileWithExistingExtension(
+        formData.passportMergedId,
+        `${customerName} Passport Merged`
+      );
+    }
     if (formData.panCardId) {
       await driveService.renameFileWithExistingExtension(
         formData.panCardId,
@@ -78,6 +86,7 @@ async function submitRegistration(req, res) {
 
     let passportFrontLink = formData.passportFrontLink || '';
     let passportBackLink = formData.passportBackLink || '';
+    let passportMergedLink = formData.passportMergedLink || '';
     let panCardLink = formData.panCardLink || '';
 
     // Build the data record for Google Sheets
@@ -99,6 +108,7 @@ async function submitRegistration(req, res) {
       meal_preference: formData.meal_preference || '',
       passportFrontLink,
       passportBackLink,
+      passportMergedLink,
       panCardLink,
       selfieLink,
       userFolderLink: '', // No specific user folder anymore
