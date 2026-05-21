@@ -32,9 +32,6 @@ function isAllowedDocumentFile(file) {
     'image/jpeg',
     'image/jpg',
     'image/png',
-    'image/webp',
-    'image/heic',
-    'image/heif',
     'application/pdf',
   ];
 
@@ -42,7 +39,7 @@ function isAllowedDocumentFile(file) {
 }
 
 function isAllowedSelfieFile(file) {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
   return allowedTypes.includes(file.mimetype);
 }
 
@@ -55,8 +52,8 @@ const fileFilter = (req, file, cb) => {
     cb(null, true);
   } else {
     const allowedMessage = isSelfieField
-      ? 'Only JPEG, PNG, WebP, and HEIC images are allowed for selfie uploads.'
-      : 'Only PDF, JPEG, PNG, WebP, and HEIC files are allowed for document uploads.';
+      ? 'Only JPG and PNG images are allowed for selfie uploads.'
+      : 'Only PDF, JPG, and PNG files are allowed for document uploads.';
     cb(new Error(`Invalid file type: ${file.mimetype}. ${allowedMessage}`), false);
   }
 };

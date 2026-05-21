@@ -368,10 +368,16 @@ const Home = () => {
   const [formErrors, setFormErrors] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState(persistedState.processingError);
+  const hasSuccessfulUploads = 
+    persistedState.driveLinks?.passport_front_id && 
+    persistedState.driveLinks?.passport_back_id && 
+    persistedState.driveLinks?.passport_merged_id && 
+    persistedState.driveLinks?.pan_card_id;
+
   const [documentProcessingState, setDocumentProcessingState] = useState(
     persistedState.processingError
       ? 'error'
-      : persistedState.ocrRawText || persistedState.driveLinks?.passport_front_id || persistedState.driveLinks?.pan_card_id
+      : hasSuccessfulUploads
         ? 'success'
         : 'idle'
   );
@@ -523,9 +529,7 @@ const Home = () => {
       return { success: true };
     }
 
-    if (documentProcessingState === 'error' && !processingPromiseRef.current) {
-      return { success: false };
-    }
+    // If state is error, allow it to retry by skipping early exit
 
     if (processingPromiseRef.current) {
       return processingPromiseRef.current;
