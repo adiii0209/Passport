@@ -148,7 +148,15 @@ export default function UploadCard({
   );
 
   const onDrop = useCallback(
-    (acceptedFiles) => {
+    (acceptedFiles, fileRejections) => {
+      if (fileRejections.length > 0) {
+        toast.error(
+          isSelfie
+            ? 'Only JPG and PNG images are allowed for selfie uploads.'
+            : 'Only PDF, JPG, and PNG files are allowed for document uploads.'
+        );
+      }
+
       if (acceptedFiles.length > 0) {
         processFile(acceptedFiles[0]);
       }
@@ -157,7 +165,7 @@ export default function UploadCard({
         inputRef.current.value = '';
       }
     },
-    [processFile]
+    [processFile, isSelfie]
   );
 
   const { getRootProps, getInputProps, isDragActive, open: openFilePicker, inputRef } = useDropzone({
