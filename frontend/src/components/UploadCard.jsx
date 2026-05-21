@@ -77,9 +77,9 @@ export default function UploadCard({
   const cameraInputRef = useRef(null);
   const isSelfie = fieldName === 'selfie';
   const acceptedTypes = isSelfie
-    ? { 'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.heic', '.heif'] }
+    ? { 'image/*': ['.jpeg', '.jpg', '.png'] }
     : {
-        'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.heic', '.heif'],
+        'image/*': ['.jpeg', '.jpg', '.png'],
         'application/pdf': ['.pdf'],
       };
   const isImageFile = file?.type?.startsWith('image/');
