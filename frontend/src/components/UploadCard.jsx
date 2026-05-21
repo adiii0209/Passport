@@ -77,9 +77,13 @@ export default function UploadCard({
   const cameraInputRef = useRef(null);
   const isSelfie = fieldName === 'selfie';
   const acceptedTypes = isSelfie
-    ? { 'image/*': ['.jpeg', '.jpg', '.png'] }
+    ? {
+        'image/jpeg': ['.jpeg', '.jpg'],
+        'image/png': ['.png'],
+      }
     : {
-        'image/*': ['.jpeg', '.jpg', '.png'],
+        'image/jpeg': ['.jpeg', '.jpg'],
+        'image/png': ['.png'],
         'application/pdf': ['.pdf'],
       };
   const isImageFile = file?.type?.startsWith('image/');
@@ -216,7 +220,7 @@ export default function UploadCard({
         <input
           ref={cameraInputRef}
           type="file"
-          accept="image/*"
+          accept={isSelfie ? "image/jpeg,image/png" : "image/jpeg,image/png,application/pdf"}
           capture={capture === 'user' ? 'user' : 'environment'}
           onChange={handleCameraCapture}
           style={{ display: 'none' }}
