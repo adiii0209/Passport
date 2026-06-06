@@ -6,6 +6,7 @@
 const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 
 /**
  * Merges passport front and back files and writes the output PDF to outputPath.
@@ -27,19 +28,23 @@ async function mergeToPdf(frontPath, backPath, outputPath) {
         const srcDoc = await PDFDocument.load(fileBytes);
         const copiedPages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
         copiedPages.forEach((page) => pdfDoc.addPage(page));
-      } else if (ext === '.png') {
-        const pngImage = await pdfDoc.embedPng(fileBytes);
-        const page = pdfDoc.addPage([pngImage.width, pngImage.height]);
-        page.drawImage(pngImage, {
-          x: 0,
-          y: 0,
-          width: pngImage.width,
-          height: pngImage.height,
-        });
       } else {
-        // Treat as JPEG/JPG by default (e.g., .jpg, .jpeg, .webp, etc.)
-        // pdf-lib's embedJpg is highly compatible with standard jpeg images
-        const jpgImage = await pdfDoc.embedJpg(fileBytes);
+        // Downscale and recompress image inputs before embedding so merged PDFs stay small.
+        const optimizedImageBuffer = await sharp(fileBytes, { failOn: 'none' })
+          .rotate()
+          .resize({
+            width: 1800,
+            withoutEnlargement: true,
+            fit: 'inside',
+          })
+          .jpeg({
+            quality: 72,
+            mozjpeg: true,
+            chromaSubsampling: '4:2:0',
+          })
+          .toBuffer();
+
+        const jpgImage = await pdfDoc.embedJpg(optimizedImageBuffer);
         const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
         page.drawImage(jpgImage, {
           x: 0,
@@ -58,7 +63,8 @@ async function mergeToPdf(frontPath, backPath, outputPath) {
     console.log(`✅ Successfully merged passport files into PDF: ${outputPath}`);
   } catch (error) {
     console.error('❌ Error merging passport files to PDF:', error);
-    throw new Error(`Failed to merge passport pages into PDF: ${error.message}`);
+    const message = String(error?.message || error || 'Unknown PDF merge error');
+    throw new Error(`Failed to merge passport pages into PDF: ${message}`);
   }
 }
 

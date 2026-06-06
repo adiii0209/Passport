@@ -8,6 +8,7 @@ const router = express.Router();
 const { uploadPassport, uploadPan, uploadSelfie } = require('../middleware/upload');
 const extractionController = require('../controllers/extractionController');
 const registrationController = require('../controllers/registrationController');
+const portalController = require('../controllers/portalController');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -17,6 +18,13 @@ router.get('/health', (req, res) => {
     uptime: process.uptime(),
   });
 });
+
+/**
+ * GET /api/portals/:slug
+ * Public endpoint — fetch portal config by slug (only active portals)
+ */
+router.get('/portals/:slug', portalController.getPublicPortal);
+router.get('/media/:fileId', portalController.getMedia);
 
 /**
  * POST /api/extract-passport

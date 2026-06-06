@@ -10,6 +10,8 @@ const driveService = require('../services/driveService');
 const ocrService = require('../services/ocrService');
 const aiService = require('../services/aiService');
 const pdfMergeService = require('../services/pdfMergeService');
+const portalService = require('../services/portalService');
+const uploadOptimizationService = require('../services/uploadOptimizationService');
 
 /**
  * POST /api/extract-passport
@@ -43,13 +45,41 @@ async function extractPassport(req, res) {
 
     // Merge front and back into PDF
     await pdfMergeService.mergeToPdf(frontFile.path, backFile.path, tempMergedPath);
-    const mergedFolderId = await driveService.getOrCreateMergedFolder(process.env.PASSPORT_FRONT_FOLDER_ID);
+
+    const [optimizedFront, optimizedBack, optimizedMerged] = await Promise.all([
+      uploadOptimizationService.optimizeStoredFile(frontFile.path, {
+        category: 'document',
+        mimeType: frontFile.mimetype,
+      }),
+      uploadOptimizationService.optimizeStoredFile(backFile.path, {
+        category: 'document',
+        mimeType: backFile.mimetype,
+      }),
+      uploadOptimizationService.optimizeStoredFile(tempMergedPath, {
+        category: 'document',
+        mimeType: 'application/pdf',
+      }),
+    ]);
+    tempFiles.push(...optimizedFront.cleanupPaths, ...optimizedBack.cleanupPaths, ...optimizedMerged.cleanupPaths);
+
+    const optimizedFrontName = `Pending_PassportFront_${timestamp}${optimizedFront.extension || path.extname(frontFile.originalname)}`;
+    const optimizedBackName = `Pending_PassportBack_${timestamp}${optimizedBack.extension || path.extname(backFile.originalname)}`;
+    const optimizedMergedName = `Pending_PassportMerged_${timestamp}${optimizedMerged.extension || '.pdf'}`;
+
+    const portalSlug = req.body.portalSlug;
+    let portalConfig = null;
+    if (portalSlug && portalSlug !== 'default') {
+      portalConfig = await portalService.getPortalBySlug(portalSlug);
+    }
+    const frontFolderId = portalConfig?.passportFrontFolderId || process.env.PASSPORT_FRONT_FOLDER_ID;
+    const backFolderId = portalConfig?.passportBackFolderId || process.env.PASSPORT_BACK_FOLDER_ID;
+    const mergedFolderId = portalConfig?.passportMergedFolderId || process.env.PASSPORT_MERGED_FOLDER_ID || await driveService.getOrCreateMergedFolder(portalConfig?.passportFrontFolderId || process.env.PASSPORT_FRONT_FOLDER_ID);
 
     // Step 1: Upload originals and merged PDF to specific Drive folders (we'll rename them on final submission)
     const [frontUpload, backUpload, mergedUpload] = await Promise.all([
-      driveService.uploadFile(frontFile.path, tempFrontName, process.env.PASSPORT_FRONT_FOLDER_ID),
-      driveService.uploadFile(backFile.path, tempBackName, process.env.PASSPORT_BACK_FOLDER_ID),
-      driveService.uploadFile(tempMergedPath, tempMergedName, mergedFolderId),
+      driveService.uploadFile(optimizedFront.path, optimizedFrontName, frontFolderId, optimizedFront.mimeType),
+      driveService.uploadFile(optimizedBack.path, optimizedBackName, backFolderId, optimizedBack.mimeType),
+      driveService.uploadFile(optimizedMerged.path, optimizedMergedName, mergedFolderId, optimizedMerged.mimeType),
     ]);
 
     // Step 2: Extract OCR text from both images (this handles the temp Doc internally)
@@ -137,8 +167,29 @@ async function extractPan(req, res) {
       ? `${requestedFullName} PAN${path.extname(panFile.originalname)}`
       : tempPanName;
 
+    const optimizedPan = await uploadOptimizationService.optimizeStoredFile(panFile.path, {
+      category: 'document',
+      mimeType: panFile.mimetype,
+    });
+    tempFiles.push(...optimizedPan.cleanupPaths);
+    const finalOptimizedPanName = requestedFullName
+      ? `${requestedFullName} PAN${optimizedPan.extension || path.extname(panFile.originalname)}`
+      : `Pending_PAN_${timestamp}${optimizedPan.extension || path.extname(panFile.originalname)}`;
+
+    const portalSlug = req.body.portalSlug;
+    let portalConfig = null;
+    if (portalSlug && portalSlug !== 'default') {
+      portalConfig = await portalService.getPortalBySlug(portalSlug);
+    }
+    const panFolderId = portalConfig?.panFolderId || process.env.PAN_FOLDER_ID;
+
     // Upload original to specific Drive folder
-    const panUpload = await driveService.uploadFile(panFile.path, finalPanName, process.env.PAN_FOLDER_ID);
+    const panUpload = await driveService.uploadFile(
+      optimizedPan.path,
+      finalOptimizedPanName,
+      panFolderId,
+      optimizedPan.mimeType
+    );
 
     // Extract OCR text
     const ocrText = await ocrService.extractTextFromImage(panFile.path, 'pancard');

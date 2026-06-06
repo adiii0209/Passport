@@ -74,11 +74,22 @@ function formatContactNumber(value) {
   return `${localDigits.slice(0, 5)} ${localDigits.slice(5)}`;
 }
 
-function getLiveEmailError(value) {
+function getLiveEmailError(value, allowedEmailDomains = []) {
   const email = String(value || '').trim();
   if (!email) return '';
-  if (/^[^\s@]+@axxela\.in$/i.test(email)) return '';
-  return 'Enter your company email (@axxela.in)';
+
+  if (allowedEmailDomains.length === 0) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : 'Enter a valid email address';
+  }
+
+  const emailDomain = email.split('@')[1]?.toLowerCase();
+  const normalizedDomains = allowedEmailDomains
+    .map((domain) => String(domain || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  if (normalizedDomains.includes(emailDomain)) return '';
+
+  return `Email must be from: ${normalizedDomains.join(', ')}`;
 }
 
 function useObjectUrl(file) {
@@ -160,11 +171,25 @@ function Field({ field, formData, errors, warning, onChange }) {
   );
 }
 
-export default function AutofillForm({ formData, onChange, errors, selfieFile, files }) {
+export default function AutofillForm({
+  formData,
+  onChange,
+  errors,
+  selfieFile,
+  files,
+  allowedEmailDomains = [],
+  requiredFormFields = {},
+}) {
   const selfieUrl = useObjectUrl(selfieFile);
   const passportFrontUrl = useObjectUrl(files?.passport_front);
   const passportBackUrl = useObjectUrl(files?.passport_back);
   const panCardUrl = useObjectUrl(files?.pan_card);
+  const primaryEmailDomain = allowedEmailDomains[0] || 'gmail.com';
+  const fieldRequirements = {
+    contact_number: requiredFormFields.contact_number !== false,
+    email: requiredFormFields.email !== false,
+    meal_preference: requiredFormFields.meal_preference !== false,
+  };
 
   const warnings = useMemo(() => {
     const w = {};
@@ -210,7 +235,7 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
     handleChange('contact_number', formatContactNumber(value));
   };
 
-  const liveEmailError = getLiveEmailError(formData.email);
+  const liveEmailError = getLiveEmailError(formData.email, allowedEmailDomains);
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-8">
@@ -352,7 +377,7 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
             <label className="form-label" htmlFor="contact_number">
-              Contact Number
+              Contact Number{fieldRequirements.contact_number ? ' *' : ' (Optional)'}
             </label>
             <div className="contact-row">
               <div className="contact-prefix">+91</div>
@@ -370,13 +395,13 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
 
           <div>
             <label className="form-label" htmlFor="email">
-              Email Address
+              Email Address{fieldRequirements.email ? ' *' : ' (Optional)'}
             </label>
             <input
               type="email"
               id="email"
               className="form-input"
-              placeholder="name@axxela.in"
+                placeholder={`name@${primaryEmailDomain}`}
               value={formData.email || ''}
               onChange={(event) => handleChange('email', event.target.value)}
             />
@@ -388,7 +413,7 @@ export default function AutofillForm({ formData, onChange, errors, selfieFile, f
           <div className="sm:col-span-2">
             <div className="max-w-xs">
               <label className="form-label" htmlFor="meal_preference">
-                Meal Preference
+                Meal Preference{fieldRequirements.meal_preference ? ' *' : ' (Optional)'}
               </label>
               <select
                 id="meal_preference"

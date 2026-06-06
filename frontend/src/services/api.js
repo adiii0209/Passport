@@ -46,10 +46,11 @@ api.interceptors.response.use(
  * @param {Function} onProgress - Upload progress callback (0-100)
  * @returns {Object} - { success, data, files, ocrText, tempFolderId }
  */
-export async function extractPassport(frontFile, backFile, onProgress) {
+export async function extractPassport(frontFile, backFile, portalSlug, onProgress) {
   const formData = new FormData();
   formData.append('passport_front', frontFile);
   formData.append('passport_back', backFile);
+  if (portalSlug) formData.append('portalSlug', portalSlug);
 
   const response = await api.post('/extract-passport', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -70,12 +71,13 @@ export async function extractPassport(frontFile, backFile, onProgress) {
  * @param {Function} onProgress - Upload progress callback
  * @returns {Object} - { success, data, file, ocrText }
  */
-export async function extractPan(panFile, fullName, onProgress) {
+export async function extractPan(panFile, fullName, portalSlug, onProgress) {
   const formData = new FormData();
   formData.append('pan_card', panFile);
   if (fullName) {
     formData.append('full_name', fullName);
   }
+  if (portalSlug) formData.append('portalSlug', portalSlug);
 
   const response = await api.post('/extract-pan', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

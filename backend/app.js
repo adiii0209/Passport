@@ -9,6 +9,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const apiRoutes = require('./routes/api');
+const adminRoutes = require('./routes/adminRoutes');
+const { connectDb, closeDb } = require('./services/db');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -43,7 +45,7 @@ app.use(cors({
 
     callback(new Error(`Origin not allowed by CORS: ${origin}`));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
@@ -61,17 +63,21 @@ app.use((req, res, next) => {
 
 // ─── API Routes ──────────────────────────────────────────────────
 app.use('/api', apiRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ─── Root Endpoint ───────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
     name: 'Travel Registration API',
-    version: '1.0.0',
+    version: '2.0.0',
     endpoints: {
       health: 'GET /api/health',
       extractPassport: 'POST /api/extract-passport',
       extractPan: 'POST /api/extract-pan',
       submitRegistration: 'POST /api/submit-registration',
+      getPortal: 'GET /api/portals/:slug',
+      adminLogin: 'POST /api/admin/login',
+      adminPortals: 'GET /api/admin/portals',
     },
   });
 });
@@ -102,13 +108,40 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start Server ────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Allowed CORS origins: ${allowedOrigins.join(', ') || 'all origins allowed (no FRONTEND_URL/ALLOWED_ORIGINS set)'}`);
-  console.log(`
+async function startServer() {
+  try {
+    // Initialize MongoDB connection
+    await connectDb();
+
+    app.listen(PORT, () => {
+      console.log(`Allowed CORS origins: ${allowedOrigins.join(', ') || 'all origins allowed (no FRONTEND_URL/ALLOWED_ORIGINS set)'}`);
+      console.log(`
   ╔════════════════════════════════════════╗
   ║   Travel Registration API Server      ║
   ║   Running on http://localhost:${PORT}     ║
   ║   Environment: ${process.env.NODE_ENV || 'development'}       ║
+  ║   MongoDB: Connected ✓               ║
+  ║   Admin: /api/admin/login             ║
   ╚════════════════════════════════════════╝
   `);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
+    process.exit(1);
+  }
+}
+
+// ─── Graceful Shutdown ───────────────────────────────────────────
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Shutting down...');
+  await closeDb();
+  process.exit(0);
 });
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 Shutting down...');
+  await closeDb();
+  process.exit(0);
+});
+
+startServer();

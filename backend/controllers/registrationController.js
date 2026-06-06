@@ -2,6 +2,7 @@
  * Registration Controller
  * Handles the final submission of registration data
  * Uploads selfie, renames Drive files, stores data in Sheets
+ * Supports portal-specific configurations (sheet, folders)
  */
 
 const fs = require('fs');
@@ -10,6 +11,8 @@ const { v4: uuidv4 } = require('uuid');
 const driveService = require('../services/driveService');
 const sheetsService = require('../services/sheetsService');
 const notificationService = require('../services/notificationService');
+const portalService = require('../services/portalService');
+const uploadOptimizationService = require('../services/uploadOptimizationService');
 
 /**
  * POST /api/submit-registration
@@ -33,6 +36,7 @@ async function submitRegistration(req, res) {
       'passportMergedLink',
       'panCardLink',
       'ocrRawText',
+      'portalSlug',
     ]);
     const formData = Object.fromEntries(
       Object.entries(req.body || {}).map(([key, value]) => [
@@ -42,6 +46,19 @@ async function submitRegistration(req, res) {
     );
 
     console.log(`📋 Processing registration: ${registrationId}`);
+
+    // Look up portal configuration if a portalSlug is provided
+    let portalConfig = null;
+    const portalSlug = formData.portalSlug || '';
+    if (portalSlug) {
+      portalConfig = await portalService.getPortalBySlug(portalSlug);
+      if (portalConfig) {
+        console.log(`📋 Using portal config: ${portalConfig.slug} (${portalConfig.title})`);
+      }
+    }
+
+    // Determine folder IDs (portal-specific or fallback to global .env)
+    const photoFolderId = portalConfig?.photoFolderId || process.env.PHOTO_FOLDER_ID;
 
     const customerName = driveService.sanitizeDriveFileLabel(formData.full_name) || 'Unknown';
 
@@ -71,15 +88,21 @@ async function submitRegistration(req, res) {
       );
     }
 
-    // 2. Upload selfie to PHOTO folder
+    // 2. Upload selfie to PHOTO folder (portal-specific or global)
     let selfieLink = '';
     if (req.file) {
       tempFiles.push(req.file.path);
-      const selfieName = `${customerName} Photo${path.extname(req.file.originalname)}`;
+      const optimizedSelfie = await uploadOptimizationService.optimizeStoredFile(req.file.path, {
+        category: 'selfie',
+        mimeType: req.file.mimetype,
+      });
+      tempFiles.push(...optimizedSelfie.cleanupPaths);
+      const selfieName = `${customerName} Photo${optimizedSelfie.extension || path.extname(req.file.originalname)}`;
       const selfieUpload = await driveService.uploadFile(
-        req.file.path,
+        optimizedSelfie.path,
         selfieName,
-        process.env.PHOTO_FOLDER_ID
+        photoFolderId,
+        optimizedSelfie.mimeType
       );
       selfieLink = selfieUpload.webViewLink || '';
     }
@@ -92,6 +115,8 @@ async function submitRegistration(req, res) {
     // Build the data record for Google Sheets
     const registrationRecord = {
       registrationId,
+      portalSlug: portalSlug || 'default',
+      portalTitle: portalConfig?.title || 'Default',
       given_name: formData.given_name || '',
       surname: formData.surname || '',
       full_name: formData.full_name || '',
@@ -111,17 +136,24 @@ async function submitRegistration(req, res) {
       passportMergedLink,
       panCardLink,
       selfieLink,
-      userFolderLink: '', // No specific user folder anymore
+      userFolderLink: '',
       ocrRawText: formData.ocrRawText || '',
     };
 
+    // Determine which Google Sheet to use (portal-specific or global)
+    const sheetId = portalConfig?.googleSheetId || process.env.GOOGLE_MASTER_SHEET_ID || process.env.GOOGLE_SHEET_ID;
+    const sheetName = portalConfig?.googleSheetName || portalConfig?.slug || 'Sheet1';
+
     // Save to Google Sheets
-    await sheetsService.appendRegistration(registrationRecord);
+    await sheetsService.appendRegistration(registrationRecord, {
+      spreadsheetId: sheetId,
+      sheetName,
+    });
 
     // Send Notification (non-blocking)
     notificationService.sendNotification(registrationRecord).catch(err => console.error(err));
 
-    console.log(`✅ Registration ${registrationId} completed successfully`);
+    console.log(`✅ Registration ${registrationId} completed successfully (portal: ${portalSlug || 'default'})`);
 
     res.json({
       success: true,

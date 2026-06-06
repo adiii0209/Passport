@@ -35,6 +35,41 @@ function sanitizeDriveFileLabel(value) {
     .trim();
 }
 
+function extractDriveFileId(value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(input) && !input.includes('://')) {
+    return input;
+  }
+
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return '';
+}
+
+function buildDrivePublicUrl(value, options = {}) {
+  const { download = false, fallbackUrl = '' } = options;
+  const fileId = extractDriveFileId(value);
+
+  if (!fileId) {
+    return fallbackUrl || String(value || '');
+  }
+
+  return `https://drive.google.com/uc?export=${download ? 'download' : 'view'}&id=${fileId}`;
+}
+
 // ─── Initialize OAuth2 Client Centralized ──────────────────
 function getDriveClient() {
   const oauth2Client = new google.auth.OAuth2(
@@ -197,6 +232,11 @@ async function renameFile(fileId, newName) {
   }
 }
 
+async function renameFolder(folderId, newName) {
+  const safeFolderName = sanitizeDriveFileLabel(newName) || 'Portal';
+  return renameFile(folderId, safeFolderName);
+}
+
 async function getFile(fileId) {
   const drive = getDriveClient();
   const response = await drive.files.get({
@@ -204,6 +244,17 @@ async function getFile(fileId) {
     fields: 'id, name, parents, webViewLink, webContentLink',
   });
   return response.data;
+}
+
+async function downloadFileStream(fileId, rangeHeader) {
+  const drive = getDriveClient();
+  return drive.files.get(
+    { fileId, alt: 'media' },
+    {
+      responseType: 'stream',
+      headers: rangeHeader ? { Range: rangeHeader } : undefined,
+    }
+  );
 }
 
 async function renameFileWithExistingExtension(fileId, baseName) {
@@ -228,6 +279,30 @@ async function createFolder(folderName, parentFolderId) {
   });
 
   console.log(`📁 Created folder: ${safeFolderName} (${response.data.id})`);
+  return response.data;
+}
+
+async function createShortcut(targetFileId, shortcutName, parentFolderId) {
+  if (!targetFileId) {
+    throw new Error('Target file ID is required to create a shortcut');
+  }
+
+  const drive = getDriveClient();
+  const safeShortcutName = sanitizeDriveFileLabel(shortcutName) || 'Shortcut';
+
+  const response = await drive.files.create({
+    requestBody: {
+      name: safeShortcutName,
+      mimeType: 'application/vnd.google-apps.shortcut',
+      parents: parentFolderId ? [parentFolderId] : undefined,
+      shortcutDetails: {
+        targetId: targetFileId,
+      },
+    },
+    fields: 'id, name, webViewLink',
+  });
+
+  console.log(`🔗 Created shortcut: ${safeShortcutName} (${response.data.id})`);
   return response.data;
 }
 
@@ -317,11 +392,15 @@ module.exports = {
   deleteFile,
   makePublic,
   renameFile,
+  renameFolder,
   renameFileWithExistingExtension,
   createFolder,
+  createShortcut,
   getFolderLink,
   moveFileToFolder,
   sanitizeDriveFileLabel,
+  extractDriveFileId,
+  buildDrivePublicUrl,
+  downloadFileStream,
   getOrCreateMergedFolder,
 };
-

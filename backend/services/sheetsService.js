@@ -2,6 +2,7 @@
  * Google Sheets Service
  * Stores registration data in a Google Sheet
  * Auto-creates headers on first write
+ * Supports per-portal sheet overrides
  */
 
 const { google } = require('googleapis');
@@ -20,56 +21,139 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth: oauth2Client });
 }
 
-// Column headers for the registration sheet
-const HEADERS = [
+const REGISTRATION_HEADERS = [
   'Registration ID',
   'Timestamp',
+  'Portal',
+  'Portal Title',
   'Given Name',
   'Surname',
   'Full Name',
-  'Passport Number',
+  'Passport No.',
   'Date of Birth',
   'Date of Issue',
   'Date of Expiry',
   'Place of Birth',
   'Place of Issue',
   'Passport Address',
-  'PAN Number',
-  'Contact Number',
-  'Email Address',
-  'Meal Preference',
+  'REMARK',
+  'LAST DATE OF VACCINATION',
+  'PHOTO',
+  'PAN CARD',
+  'DOMESTIC ID',
+  'CONTACT NO',
+  'EMAIL',
   'Passport Front Link',
   'Passport Back Link',
   'Passport Merged Link',
   'PAN Card Link',
   'Selfie Link',
-  'User Folder Link',
   'OCR Raw Text',
 ];
 
-async function ensureHeaders(spreadsheetId) {
+function quoteSheetName(sheetName) {
+  return `'${String(sheetName || 'Sheet1').replace(/'/g, "''")}'`;
+}
+
+function columnIndexToLetter(index) {
+  let n = index;
+  let letters = '';
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters || 'A';
+}
+
+function normalizeSheetName(name) {
+  const cleaned = String(name || 'Portal')
+    .replace(/[\[\]:*?/\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return (cleaned || 'Portal').slice(0, 99);
+}
+
+async function getSpreadsheet(spreadsheetId) {
   const sheets = getSheetsClient();
+  return sheets.spreadsheets.get({ spreadsheetId });
+}
+
+async function getFirstSheetName(spreadsheetId) {
+  const response = await getSpreadsheet(spreadsheetId);
+  const firstSheetTitle = response.data.sheets?.[0]?.properties?.title;
+  return normalizeSheetName(firstSheetTitle || 'Sheet1');
+}
+
+async function ensureSheetTab(spreadsheetId, sheetName) {
+  const sheets = getSheetsClient();
+  const normalizedName = normalizeSheetName(sheetName);
+  try {
+    const spreadsheet = await getSpreadsheet(spreadsheetId);
+    const existing = spreadsheet.data.sheets?.some(
+      (sheet) => sheet.properties?.title === normalizedName
+    );
+
+    if (!existing) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: normalizedName,
+                },
+              },
+            },
+          ],
+        },
+      });
+      console.log(`📄 Created sheet tab: ${normalizedName}`);
+    }
+  } catch (error) {
+    console.error(`⚠️  Could not ensure sheet tab "${normalizedName}":`, error.message);
+  }
+
+  return normalizedName;
+}
+
+async function ensureHeaders(spreadsheetId, sheetName, headers = REGISTRATION_HEADERS) {
+  const sheets = getSheetsClient();
+  const normalizedName = await ensureSheetTab(spreadsheetId, sheetName);
+  const endColumn = columnIndexToLetter(headers.length);
+
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Sheet1!A1:W1',
+      range: `${quoteSheetName(normalizedName)}!A1:${endColumn}1`,
     });
 
-    // If no data or empty, write headers
-    if (!response.data.values || response.data.values.length === 0) {
+    const existingHeaders = response.data.values?.[0] || [];
+    const hasNoHeaders = existingHeaders.length === 0;
+    const headersMismatch =
+      existingHeaders.length !== headers.length
+      || headers.some((header, index) => String(existingHeaders[index] || '').trim() !== header);
+
+    if (hasNoHeaders || headersMismatch) {
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: 'Sheet1!A1',
+        range: `${quoteSheetName(normalizedName)}!A1`,
         valueInputOption: 'RAW',
         requestBody: {
-          values: [HEADERS],
+          values: [headers],
         },
       });
-      console.log('📊 Sheet headers created');
+      console.log(
+        `${hasNoHeaders ? '📊 Sheet headers created' : '📊 Sheet headers synced'} for ${normalizedName}`
+      );
     }
   } catch (error) {
-    console.error('⚠️  Could not verify sheet headers:', error.message);
+    console.error(`⚠️  Could not verify sheet headers for ${normalizedName}:`, error.message);
   }
+
+  return normalizedName;
 }
 
 function formatDate(dateStr) {
@@ -106,20 +190,17 @@ function getISTTimestamp() {
   return `${day}-${month}-${year} ${strHours}:${minutes}:${seconds} ${ampm} IST`;
 }
 
-async function appendRegistration(data) {
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-
-  if (!spreadsheetId || spreadsheetId === 'your_sheet_id_here') {
-    console.warn('⚠️  Google Sheet ID not configured. Skipping sheet storage.');
-    return null;
-  }
-
-  // Ensure headers exist
-  await ensureHeaders(spreadsheetId);
-
-  const row = [
+/**
+ * Append a registration record to a Google Sheet.
+ * @param {Object} data - Registration record data
+ * @param {string} [overrideSheetId] - Optional sheet ID override (for portal-specific sheets)
+ */
+function buildRegistrationRow(data) {
+  return [
     data.registrationId || '',
     getISTTimestamp(),
+    data.portalSlug || 'default',
+    data.portalTitle || 'Default',
     data.given_name || '',
     data.surname || '',
     data.full_name || '',
@@ -130,24 +211,41 @@ async function appendRegistration(data) {
     data.place_of_birth || '',
     data.place_of_issue || '',
     data.passport_address || '',
-    data.pan_number || '',
+    data.remark || '',
+    data.last_date_of_vaccination || '',
+    data.photo || '',
+    data.pan_card || '',
+    data.domestic_id || '',
     data.contact_number || '',
     data.email || '',
-    data.meal_preference || '',
     data.passportFrontLink || '',
     data.passportBackLink || '',
     data.passportMergedLink || '',
     data.panCardLink || '',
     data.selfieLink || '',
-    data.userFolderLink || '',
     data.ocrRawText || '',
   ];
+}
+
+async function appendRegistration(data, options = {}) {
+  const resolvedOptions = typeof options === 'string' ? { spreadsheetId: options } : (options || {});
+  const spreadsheetId = resolvedOptions.spreadsheetId || process.env.GOOGLE_SHEET_ID;
+  const sheetName = resolvedOptions.sheetName || 'Sheet1';
+
+  if (!spreadsheetId || spreadsheetId === 'your_sheet_id_here') {
+    console.warn('⚠️  Google Sheet ID not configured. Skipping sheet storage.');
+    return null;
+  }
+
+  const normalizedSheetName = await ensureHeaders(spreadsheetId, sheetName, REGISTRATION_HEADERS);
+  const row = buildRegistrationRow(data);
+  const endColumn = columnIndexToLetter(REGISTRATION_HEADERS.length);
 
   const sheets = getSheetsClient();
   try {
     const response = await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Sheet1!A:W',
+      range: `${quoteSheetName(normalizedSheetName)}!A:${endColumn}`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: {
@@ -155,7 +253,7 @@ async function appendRegistration(data) {
       },
     });
 
-    console.log('📊 Registration data saved to Google Sheets');
+    console.log(`📊 Registration data saved to Google Sheets (${spreadsheetId.substring(0, 8)}...)`);
     return response.data;
   } catch (error) {
     console.error('❌ Failed to save to Google Sheets:', error.message);
@@ -165,5 +263,11 @@ async function appendRegistration(data) {
 }
 
 module.exports = {
+  REGISTRATION_HEADERS,
+  normalizeSheetName,
+  getFirstSheetName,
+  ensureSheetTab,
+  ensureHeaders,
+  buildRegistrationRow,
   appendRegistration,
 };

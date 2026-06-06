@@ -1,25 +1,25 @@
+/**
+ * PortalLanding — Dynamic portal page
+ * Fetches portal config by slug from URL, renders a fully branded
+ * registration experience with the portal's hero, theme, and documents.
+ */
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import {
   HiOutlineArrowRight,
-  HiOutlineCalendar,
   HiOutlineCheckCircle,
-  HiOutlineClipboardList,
   HiOutlineCloudUpload,
   HiOutlineHome,
   HiOutlineInformationCircle,
-  HiOutlineLocationMarker,
-  HiOutlineOfficeBuilding,
-  HiOutlineSupport,
 } from 'react-icons/hi';
 import * as api from '../services/api';
 import UploadCard from '../components/UploadCard';
 import AutofillForm from '../components/AutofillForm';
-import itineraryImage from '../assets/itinerary.png';
 
-const WIZARD_STORAGE_KEY = 'passport-extractor-wizard-v1';
+const WIZARD_STORAGE_PREFIX = 'passport-extractor-portal-';
 
 function getWizardStorage() {
   if (typeof window === 'undefined') return null;
@@ -32,15 +32,6 @@ const STEPS = [
   { id: 'selfie', title: 'Selfie' },
   { id: 'details', title: 'Details' },
   { id: 'success', title: 'Success' },
-];
-
-const HIGHLIGHTS = [
-  {
-    id: 'info',
-    title: 'Easy Registration',
-    label: 'Process',
-    description: 'Quickly register for your upcoming trip or event using our automated extraction tool.',
-  }
 ];
 
 const PROCESSING_STEPS = [
@@ -58,15 +49,6 @@ const SUBMISSION_STEPS = [
   'Getting your boarding vibes ready',
 ];
 
-const PROCESSING_IMAGES = [];
-
-const EMPTY_FILES = {
-  passport_front: null,
-  passport_back: null,
-  pan_card: null,
-  selfie: null,
-};
-
 const EMPTY_FORM_DATA = {
   full_name: '',
   given_name: '',
@@ -82,6 +64,12 @@ const EMPTY_FORM_DATA = {
   contact_number: '',
   email: '',
   meal_preference: '',
+};
+
+const DEFAULT_REQUIRED_FORM_FIELDS = {
+  contact_number: true,
+  email: true,
+  meal_preference: true,
 };
 
 function normalizeUppercaseRecord(record) {
@@ -125,28 +113,54 @@ function normalizeExtractedNameFields(record) {
   return record;
 }
 
+function extractDriveFileId(value) {
+  const input = String(value || '').trim();
+  if (!input) return '';
+
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(input) && !input.includes('://')) {
+    return input;
+  }
+
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return '';
+}
+
+function resolveDriveMediaUrl(value, fallbackUrl = '', download = false) {
+  const fileId = extractDriveFileId(value);
+  if (!fileId) {
+    return fallbackUrl || String(value || '');
+  }
+
+  return `/api/media/${fileId}${download ? '?download=1' : ''}`;
+}
+
 function getFriendlyProcessingError(error) {
-  const rawMessage = String(error?.message || error || '').toLowerCase();
+  const rawMessage = String(error?.message || error || '').trim();
+  const normalized = rawMessage.toLowerCase();
 
   if (
-    rawMessage.includes('econnrefused') ||
-    rawMessage.includes('network error') ||
-    rawMessage.includes('failed to fetch') ||
-    rawMessage.includes('server is not available')
+    normalized.includes('econnrefused') ||
+    normalized.includes('network error') ||
+    normalized.includes('failed to fetch') ||
+    normalized.includes('server is not available')
   ) {
     return 'The server is not available right now. Please review the details and try again in a moment.';
   }
 
-  if (rawMessage.includes('passport')) {
-    return 'We could not read the passport clearly. Please review the details and correct any missing fields.';
-  }
-
-  if (rawMessage.includes('pan')) {
-    return 'We could not read the PAN card clearly. Please review the details and correct any missing fields.';
-  }
-
-  if (rawMessage.includes('network') || rawMessage.includes('timeout')) {
-    return 'We ran into a connection issue while checking your documents. Please review the details and try again if needed.';
+  if (rawMessage) {
+    return rawMessage;
   }
 
   return 'We could not complete the document check. Please review the details and fill in any missing information.';
@@ -170,86 +184,6 @@ function dataUrlToFile(dataUrl, name, type, lastModified) {
     type: mimeType,
     lastModified: lastModified || Date.now(),
   });
-}
-
-function loadPersistedWizardState() {
-  const storage = getWizardStorage();
-
-  if (!storage) {
-    return {
-      files: EMPTY_FILES,
-      formData: EMPTY_FORM_DATA,
-      driveLinks: {},
-      ocrRawText: '',
-      processingError: null,
-    };
-  }
-
-  try {
-    const rawState = storage.getItem(WIZARD_STORAGE_KEY);
-    if (!rawState) {
-      return {
-        files: EMPTY_FILES,
-        formData: EMPTY_FORM_DATA,
-        driveLinks: {},
-        ocrRawText: '',
-        processingError: null,
-      };
-    }
-
-    const parsedState = JSON.parse(rawState);
-    const persistedFiles = parsedState.files || {};
-
-    return {
-      files: {
-        passport_front: persistedFiles.passport_front
-          ? dataUrlToFile(
-            persistedFiles.passport_front.dataUrl,
-            persistedFiles.passport_front.name,
-            persistedFiles.passport_front.type,
-            persistedFiles.passport_front.lastModified
-          )
-          : null,
-        passport_back: persistedFiles.passport_back
-          ? dataUrlToFile(
-            persistedFiles.passport_back.dataUrl,
-            persistedFiles.passport_back.name,
-            persistedFiles.passport_back.type,
-            persistedFiles.passport_back.lastModified
-          )
-          : null,
-        pan_card: persistedFiles.pan_card
-          ? dataUrlToFile(
-            persistedFiles.pan_card.dataUrl,
-            persistedFiles.pan_card.name,
-            persistedFiles.pan_card.type,
-            persistedFiles.pan_card.lastModified
-          )
-          : null,
-        selfie: persistedFiles.selfie
-          ? dataUrlToFile(
-            persistedFiles.selfie.dataUrl,
-            persistedFiles.selfie.name,
-            persistedFiles.selfie.type,
-            persistedFiles.selfie.lastModified
-          )
-          : null,
-      },
-      formData: normalizeUppercaseRecord({ ...EMPTY_FORM_DATA, ...(parsedState.formData || {}) }),
-      driveLinks: parsedState.driveLinks || {},
-      ocrRawText: parsedState.ocrRawText || '',
-      processingError: parsedState.processingError || null,
-    };
-  } catch (error) {
-    console.error('Failed to restore saved registration state:', error);
-    return {
-      files: EMPTY_FILES,
-      formData: EMPTY_FORM_DATA,
-      driveLinks: {},
-      ocrRawText: '',
-      processingError: null,
-    };
-  }
 }
 
 async function fileToPersistedPayload(file) {
@@ -307,34 +241,182 @@ function StepGlyph({ stepId }) {
   }
 }
 
-const Home = () => {
+/**
+ * Portal 404 — shown when slug is invalid or portal is inactive.
+ */
+function PortalNotFound({ slug }) {
+  const navigate = useNavigate();
+  return (
+    <div className="portal-not-found">
+      <motion.div
+        className="portal-not-found-card"
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 22 }}
+      >
+        <div className="portal-not-found-icon">🔍</div>
+        <h1>Portal Not Found</h1>
+        <p>
+          The portal <strong>/{slug}</strong> doesn't exist or is currently inactive.
+        </p>
+        <button
+          type="button"
+          className="cta-primary"
+          onClick={() => navigate('/')}
+        >
+          Go Home
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * Loading state while fetching portal config.
+ */
+function PortalLoading() {
+  return (
+    <div className="portal-loading">
+      <motion.div
+        className="portal-loading-spinner"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      />
+      <p>Loading portal...</p>
+    </div>
+  );
+}
+
+const PortalLanding = ({ slugOverride = '', basePathOverride }) => {
+  const params = useParams();
+  const slug = slugOverride || params.slug || '';
   const navigate = useNavigate();
   const location = useLocation();
-  const persistedState = useRef(loadPersistedWizardState()).current;
+  const basePath = basePathOverride !== undefined ? basePathOverride : `/${slug}`;
 
+  // Portal config state
+  const [portalConfig, setPortalConfig] = useState(null);
+  const [portalLoading, setPortalLoading] = useState(true);
+  const [portalError, setPortalError] = useState(false);
+
+  // Fetch portal config on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchPortal() {
+      try {
+        setPortalLoading(true);
+        setPortalError(false);
+        const response = await api.default.get(`/portals/${slug}`);
+        if (!cancelled && response.data.success) {
+          setPortalConfig(response.data.portal);
+        } else if (!cancelled) {
+          setPortalError(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPortalError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setPortalLoading(false);
+        }
+      }
+    }
+    fetchPortal();
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  // Apply portal theme via CSS custom properties
+  useEffect(() => {
+    if (!portalConfig?.theme) return;
+    const root = document.documentElement;
+    root.style.setProperty('--portal-primary', portalConfig.theme.primaryColor || '#6366f1');
+    root.style.setProperty('--portal-accent', portalConfig.theme.accentColor || '#f59e0b');
+    root.style.setProperty('--portal-hero-overlay', portalConfig.theme.heroOverlayOpacity ?? 0.4);
+
+    return () => {
+      root.style.removeProperty('--portal-primary');
+      root.style.removeProperty('--portal-accent');
+      root.style.removeProperty('--portal-hero-overlay');
+    };
+  }, [portalConfig]);
+
+  // Wizard storage key unique per portal
+  const WIZARD_STORAGE_KEY = `${WIZARD_STORAGE_PREFIX}${slug}`;
+
+  // Determine step from path
   const getStepFromPath = useCallback((path) => {
-    switch (path) {
+    const subPath = basePath ? path.replace(basePath, '') || '/' : path || '/';
+    switch (subPath) {
       case '/': return 0;
+      case '/register': return 1;
       case '/upload': return 1;
       case '/selfie': return 2;
       case '/details': return 3;
       case '/success': return 4;
       default: return 0;
     }
-  }, []);
+  }, [basePath]);
 
-  const getPathFromStep = (step) => {
+  const getPathFromStep = useCallback((step) => {
     switch (step) {
-      case 0: return '/';
-      case 1: return '/upload';
-      case 2: return '/selfie';
-      case 3: return '/details';
-      case 4: return '/success';
-      default: return '/';
+      case 0: return basePath || '/';
+      case 1: return `${basePath}/upload` || '/upload';
+      case 2: return `${basePath}/selfie` || '/selfie';
+      case 3: return `${basePath}/details` || '/details';
+      case 4: return `${basePath}/success` || '/success';
+      default: return basePath || '/';
     }
-  };
+  }, [basePath]);
+
+  // Load persisted state
+  function loadPersistedWizardState() {
+    const storage = getWizardStorage();
+    const empty = {
+      files: { passport_front: null, passport_back: null, pan_card: null, selfie: null },
+      formData: EMPTY_FORM_DATA,
+      driveLinks: {},
+      ocrRawText: '',
+      processingError: null,
+    };
+
+    if (!storage) return empty;
+
+    try {
+      const rawState = storage.getItem(WIZARD_STORAGE_KEY);
+      if (!rawState) return empty;
+
+      const parsedState = JSON.parse(rawState);
+      const persistedFiles = parsedState.files || {};
+
+      return {
+        files: {
+          passport_front: persistedFiles.passport_front
+            ? dataUrlToFile(persistedFiles.passport_front.dataUrl, persistedFiles.passport_front.name, persistedFiles.passport_front.type, persistedFiles.passport_front.lastModified)
+            : null,
+          passport_back: persistedFiles.passport_back
+            ? dataUrlToFile(persistedFiles.passport_back.dataUrl, persistedFiles.passport_back.name, persistedFiles.passport_back.type, persistedFiles.passport_back.lastModified)
+            : null,
+          pan_card: persistedFiles.pan_card
+            ? dataUrlToFile(persistedFiles.pan_card.dataUrl, persistedFiles.pan_card.name, persistedFiles.pan_card.type, persistedFiles.pan_card.lastModified)
+            : null,
+          selfie: persistedFiles.selfie
+            ? dataUrlToFile(persistedFiles.selfie.dataUrl, persistedFiles.selfie.name, persistedFiles.selfie.type, persistedFiles.selfie.lastModified)
+            : null,
+        },
+        formData: normalizeUppercaseRecord({ ...EMPTY_FORM_DATA, ...(parsedState.formData || {}) }),
+        driveLinks: parsedState.driveLinks || {},
+        ocrRawText: parsedState.ocrRawText || '',
+        processingError: parsedState.processingError || null,
+      };
+    } catch (error) {
+      console.error('Failed to restore saved registration state:', error);
+      return empty;
+    }
+  }
 
   const [currentStep, setCurrentStep] = useState(getStepFromPath(location.pathname));
+  const persistedState = useRef(loadPersistedWizardState()).current;
 
   useEffect(() => {
     const step = getStepFromPath(location.pathname);
@@ -349,10 +431,10 @@ const Home = () => {
   const [formErrors, setFormErrors] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState(persistedState.processingError);
-  const hasSuccessfulUploads = 
-    persistedState.driveLinks?.passport_front_id && 
-    persistedState.driveLinks?.passport_back_id && 
-    persistedState.driveLinks?.passport_merged_id && 
+  const hasSuccessfulUploads =
+    persistedState.driveLinks?.passport_front_id &&
+    persistedState.driveLinks?.passport_back_id &&
+    persistedState.driveLinks?.passport_merged_id &&
     persistedState.driveLinks?.pan_card_id;
 
   const [documentProcessingState, setDocumentProcessingState] = useState(
@@ -370,14 +452,13 @@ const Home = () => {
   const [processingStep, setProcessingStep] = useState(0);
   const [processingPulse, setProcessingPulse] = useState(0);
   const [submissionStep, setSubmissionStep] = useState(0);
-  const [isItineraryOpen, setIsItineraryOpen] = useState(false);
   const processingPromiseRef = useRef(null);
 
   useEffect(() => {
     if (currentStep === 4 && !registrationResult) {
-      navigate('/');
+      navigate(getPathFromStep(0));
     }
-  }, [currentStep, registrationResult, navigate]);
+  }, [currentStep, registrationResult, navigate, getPathFromStep]);
 
   const handleFileSelect = useCallback((fieldName, file) => {
     setFiles((prev) => ({ ...prev, [fieldName]: file }));
@@ -391,20 +472,18 @@ const Home = () => {
     }
   }, []);
 
+  // Processing timer effects
   useEffect(() => {
     if (!isProcessing) {
       setProcessingStep(0);
       setProcessingPulse(0);
       return undefined;
     }
-
     setProcessingStep(0);
     setProcessingPulse(8);
-
     const stepTimer = window.setInterval(() => {
       setProcessingStep((prev) => Math.min(prev + 1, PROCESSING_STEPS.length - 1));
     }, 1800);
-
     const pulseTimer = window.setInterval(() => {
       setProcessingPulse((prev) => {
         if (prev < 42) return prev + 1;
@@ -413,7 +492,6 @@ const Home = () => {
         return Math.min(prev + 0.15, 96);
       });
     }, 90);
-
     return () => {
       window.clearInterval(stepTimer);
       window.clearInterval(pulseTimer);
@@ -425,56 +503,46 @@ const Home = () => {
       setSubmissionStep(0);
       return undefined;
     }
-
     const submissionTimer = window.setInterval(() => {
       setSubmissionStep((prev) => (prev + 1) % SUBMISSION_STEPS.length);
     }, 1700);
-
-    return () => {
-      window.clearInterval(submissionTimer);
-    };
+    return () => { window.clearInterval(submissionTimer); };
   }, [isSubmitting]);
 
+  // Hero scroll observer
   useEffect(() => {
     if (currentStep !== 0) {
       setIsHeroActive(false);
       return undefined;
     }
-
     const updateHeroState = () => {
       const heroSection = heroSectionRef.current;
       if (!heroSection) {
         setIsHeroActive(true);
         return;
       }
-
       const { bottom } = heroSection.getBoundingClientRect();
       setIsHeroActive(bottom > window.innerHeight);
     };
-
     updateHeroState();
     window.addEventListener('scroll', updateHeroState, { passive: true });
     window.addEventListener('resize', updateHeroState);
-
     return () => {
       window.removeEventListener('scroll', updateHeroState);
       window.removeEventListener('resize', updateHeroState);
     };
   }, [currentStep]);
 
+  // Persist wizard state
   useEffect(() => {
     const storage = getWizardStorage();
     if (!storage) return undefined;
-
     let cancelled = false;
-
     const persistState = async () => {
       const serializedEntries = await Promise.all(
         Object.entries(files).map(async ([key, file]) => [key, await fileToPersistedPayload(file)])
       );
-
       if (cancelled) return;
-
       storage.setItem(
         WIZARD_STORAGE_KEY,
         JSON.stringify({
@@ -486,32 +554,33 @@ const Home = () => {
         })
       );
     };
-
     persistState().catch((error) => {
       console.error('Failed to persist registration state:', error);
     });
+    return () => { cancelled = true; };
+  }, [files, formData, driveLinks, ocrRawText, processingError, WIZARD_STORAGE_KEY]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [files, formData, driveLinks, ocrRawText, processingError]);
+  // Determine document upload fields from portal config
+  const processingDocFields = portalConfig?.requiredDocuments?.filter(d => d.key !== 'selfie') || [
+    { key: 'passport_front', label: 'Passport Front', required: true, helperText: 'Ensure the photo page is clear and glare-free.' },
+    { key: 'passport_back', label: 'Passport Back', required: true, helperText: 'Upload the address page from your passport.' },
+    { key: 'pan_card', label: 'PAN Card', required: true, helperText: 'Capture the full card within the frame.' },
+  ];
+
+  const processingRequiredDocFields = processingDocFields.filter((doc) => doc.required !== false);
+  const missingRequiredProcessingDocs = processingRequiredDocFields
+    .filter((doc) => !files[doc.key])
+    .map((doc) => doc.label || doc.key);
+  const canProcessDocumentsForAnalysis = missingRequiredProcessingDocs.length === 0;
 
   const processDocuments = useCallback(async () => {
-    if (!files.passport_front || !files.passport_back) {
-      toast.error('Please upload both passport front and back images');
+    if (!canProcessDocumentsForAnalysis) {
+      toast.error(`Please upload the required documents: ${missingRequiredProcessingDocs.join(', ')}`);
       return { success: false };
     }
-    if (!files.pan_card) {
-      toast.error('Please upload your PAN card image');
-      return { success: false };
-    }
-
     if (documentProcessingState === 'success') {
       return { success: true };
     }
-
-    // If state is error, allow it to retry by skipping early exit
-
     if (processingPromiseRef.current) {
       return processingPromiseRef.current;
     }
@@ -523,50 +592,67 @@ const Home = () => {
     const processingTask = (async () => {
       try {
         await api.checkHealth(4000);
+        const hasPassportPair = Boolean(files.passport_front && files.passport_back);
+        const hasPan = Boolean(files.pan_card);
 
-        const passportResult = await api.extractPassport(files.passport_front, files.passport_back, 'default');
-
-        if (!passportResult.success) {
-          throw new Error(passportResult.error || 'Passport extraction failed');
+        if (!hasPassportPair && !hasPan) {
+          setProcessingPulse(100);
+          setDocumentProcessingState('success');
+          toast.success('No extractable documents were uploaded. You can continue manually.');
+          return { success: true, skipped: true };
         }
 
-        setOcrRawText(passportResult.ocrText || '');
-        setDriveLinks((prev) => ({
-          ...prev,
-          passport_front_id: passportResult.files?.passport_front?.id,
-          passport_back_id: passportResult.files?.passport_back?.id,
-          passport_merged_id: passportResult.files?.passport_merged?.id,
-          passport_front: passportResult.files?.passport_front?.link,
-          passport_back: passportResult.files?.passport_back?.link,
-          passport_merged: passportResult.files?.passport_merged?.link,
-        }));
+        let passportResult = null;
+        if (hasPassportPair) {
+          passportResult = await api.extractPassport(files.passport_front, files.passport_back, slug);
+          if (!passportResult.success) {
+            throw new Error(passportResult.error || 'Passport extraction failed');
+          }
 
-        const extractedFullName = passportResult.data?.full_name || '';
-        const panResult = await api.extractPan(files.pan_card, extractedFullName, 'default');
-
-        if (!panResult.success) {
-          throw new Error(panResult.error || 'PAN extraction failed');
+          setOcrRawText(passportResult.ocrText || '');
+          setDriveLinks((prev) => ({
+            ...prev,
+            passport_front_id: passportResult.files?.passport_front?.id,
+            passport_back_id: passportResult.files?.passport_back?.id,
+            passport_merged_id: passportResult.files?.passport_merged?.id,
+            passport_front: passportResult.files?.passport_front?.link,
+            passport_back: passportResult.files?.passport_back?.link,
+            passport_merged: passportResult.files?.passport_merged?.link,
+          }));
         }
 
-        setDriveLinks((prev) => ({
-          ...prev,
-          pan_card_id: panResult.file?.id,
-          pan_card: panResult.file?.link,
-        }));
+        let panResult = null;
+        if (hasPan) {
+          const extractedFullName = passportResult?.data?.full_name || formData.full_name || '';
+          panResult = await api.extractPan(files.pan_card, extractedFullName, slug);
+          if (!panResult.success) {
+            throw new Error(panResult.error || 'PAN extraction failed');
+          }
+
+          setDriveLinks((prev) => ({
+            ...prev,
+            pan_card_id: panResult.file?.id,
+            pan_card: panResult.file?.link,
+          }));
+        }
 
         const extractedData = normalizeUppercaseRecord(
           normalizeExtractedNameFields({
-            ...(passportResult.data || {}),
-            pan_number: panResult.data?.pan_number || '',
+            ...(passportResult?.data || {}),
+            pan_number: panResult?.data?.pan_number || '',
           })
         );
 
-        setFormData((prev) => ({
-          ...prev,
-          ...extractedData,
-        }));
+        if (Object.keys(extractedData).length > 0) {
+          setFormData((prev) => ({ ...prev, ...extractedData }));
+        }
 
-        setOcrRawText((prev) => prev + '\n\n--- PAN OCR ---\n\n' + (panResult.ocrText || ''));
+        if (panResult?.ocrText) {
+          setOcrRawText((prev) => (
+            prev ? `${prev}\n\n--- PAN OCR ---\n\n${panResult.ocrText || ''}` : panResult.ocrText || ''
+          ));
+        }
+
         setProcessingPulse(100);
         setDocumentProcessingState('success');
         toast.success('Documents processed successfully!');
@@ -574,7 +660,9 @@ const Home = () => {
       } catch (error) {
         console.error('OCR processing error:', error);
         setProcessingPulse(100);
-        setProcessingError(getFriendlyProcessingError(error));
+        const friendlyError = getFriendlyProcessingError(error);
+        setProcessingError(friendlyError);
+        toast.error(friendlyError);
         setDocumentProcessingState('error');
         return { success: false, error };
       } finally {
@@ -585,15 +673,29 @@ const Home = () => {
 
     processingPromiseRef.current = processingTask;
     return processingTask;
-  }, [documentProcessingState, files.pan_card, files.passport_back, files.passport_front]);
+  }, [
+    canProcessDocumentsForAnalysis,
+    documentProcessingState,
+    files.pan_card,
+    files.passport_back,
+    files.passport_front,
+    formData.full_name,
+    missingRequiredProcessingDocs,
+    slug,
+  ]);
 
+  // Dynamic email validation based on portal's allowedEmailDomains
   const validateForm = () => {
     const errors = {};
+    const requiredFormFields = {
+      ...DEFAULT_REQUIRED_FORM_FIELDS,
+      ...(portalConfig?.requiredFormFields || {}),
+    };
     if (!formData.full_name?.trim()) errors.full_name = 'Full name is required';
     if (!formData.passport_number?.trim()) errors.passport_number = 'Passport number is required';
-    if (!formData.contact_number?.trim()) {
+    if (requiredFormFields.contact_number && !formData.contact_number?.trim()) {
       errors.contact_number = 'Contact number is required';
-    } else {
+    } else if (formData.contact_number?.trim()) {
       const contactDigits = formData.contact_number.replace(/\D/g, '');
       const isLocalNumber = contactDigits.length === 10;
       const isCountryCodeNumber = contactDigits.length === 12 && contactDigits.startsWith('91');
@@ -601,12 +703,23 @@ const Home = () => {
         errors.contact_number = 'Enter a valid contact number';
       }
     }
-    if (!formData.email?.trim()) {
+    if (requiredFormFields.email && !formData.email?.trim()) {
       errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Invalid email format';
+    } else if (formData.email?.trim()) {
+      const emailDomains = portalConfig?.allowedEmailDomains || [];
+      if (emailDomains.length > 0) {
+        const emailDomain = formData.email.trim().split('@')[1]?.toLowerCase();
+        const isAllowed = emailDomains.some(d => d.toLowerCase() === emailDomain);
+        if (!isAllowed) {
+          errors.email = `Email must be from: ${emailDomains.join(', ')}`;
+        }
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'Invalid email format';
+      }
     }
-    if (!formData.meal_preference?.trim()) errors.meal_preference = 'Meal preference is required';
+    if (requiredFormFields.meal_preference && !formData.meal_preference?.trim()) {
+      errors.meal_preference = 'Meal preference is required';
+    }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -622,6 +735,7 @@ const Home = () => {
       toast.loading('Submitting registration...', { id: 'submit' });
       const submissionData = {
         ...normalizeUppercaseRecord(formData),
+        portalSlug: slug,
         passportFrontId: driveLinks.passport_front_id || '',
         passportBackId: driveLinks.passport_back_id || '',
         passportMergedId: driveLinks.passport_merged_id || '',
@@ -631,7 +745,6 @@ const Home = () => {
         passportMergedLink: driveLinks.passport_merged || '',
         panCardLink: driveLinks.pan_card || '',
         ocrRawText,
-        portalSlug: 'default',
       };
 
       const result = await api.submitRegistration(submissionData, files.selfie);
@@ -653,8 +766,63 @@ const Home = () => {
     navigate(getPathFromStep(step));
   };
 
+  // Determine required document upload fields from portal config
+  const docFields = portalConfig?.requiredDocuments?.filter(d => d.key !== 'selfie') || [
+    { key: 'passport_front', label: 'Passport Front', required: true, helperText: 'Ensure the photo page is clear and glare-free.' },
+    { key: 'passport_back', label: 'Passport Back', required: true, helperText: 'Upload the address page from your passport.' },
+    { key: 'pan_card', label: 'PAN Card', required: true, helperText: 'Capture the full card within the frame.' },
+  ];
+
+  const selfieDoc = portalConfig?.requiredDocuments?.find(d => d.key === 'selfie') || {
+    key: 'selfie', label: 'Profile Photo', required: true, helperText: 'Look straight into the camera in good lighting.',
+  };
+  const isSelfieRequired = selfieDoc.required !== false;
+
+  // ─── Render States ───────────────────────────────────────────
+
+  if (portalLoading) return <PortalLoading />;
+  if (portalError || !portalConfig) return <PortalNotFound slug={slug} />;
+
+  const heroType = portalConfig.hero?.type || 'image';
+  const heroUrl = resolveDriveMediaUrl(
+    portalConfig.hero?.url || portalConfig.hero?.driveFileId || '',
+    '',
+    heroType === 'video'
+  );
+  const portalTitle = portalConfig.title || 'Welcome';
+  const portalSubtitle = portalConfig.subtitle || '';
+  const travelDatesDisplay = portalConfig.travelDates?.displayText || '';
+  const travelStart = portalConfig.travelDates?.start || '';
+  const travelEnd = portalConfig.travelDates?.end || '';
+
+  // Format dates for display
+  function formatDateShort(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  const startDateLabel = formatDateShort(travelStart)
+    || travelDatesDisplay.split(/\s+-\s+/)[0]?.trim()
+    || '';
+
+  const endDateLabel = formatDateShort(travelEnd)
+    || travelDatesDisplay.split(/\s+-\s+/)[1]?.trim()
+    || '';
+  const logoUrl = resolveDriveMediaUrl(portalConfig.logo?.url || portalConfig.logo?.driveFileId || '');
+
   return (
-    <div className={`page-shell${currentStep === 0 ? ' is-home' : ''}`}>
+    <div
+      className={`page-shell portal-themed${currentStep === 0 ? ' is-home' : ''}`}
+      style={{
+        '--portal-primary': portalConfig.theme?.primaryColor || '#6366f1',
+        '--portal-accent': portalConfig.theme?.accentColor || '#f59e0b',
+      }}
+    >
       <main className={`page-main${currentStep === 0 ? ' is-home' : ''}`}>
         <AnimatePresence mode="wait">
           {currentStep === 0 && (
@@ -665,17 +833,36 @@ const Home = () => {
               exit={{ opacity: 0 }}
             >
               <section ref={heroSectionRef} className="hero-section">
-                <video
-                  className="hero-video"
-                  src="/vid.optimized.mp4"
-                  autoPlay
-                  muted
-                  loop
-                  preload="auto"
-                  playsInline
-                  aria-label="Langkawi fire show background"
+                {logoUrl && (
+                  <div className="portal-logo-bar hero-logo-overlay">
+                    <img src={logoUrl} alt="Portal logo" className="portal-logo-img" />
+                  </div>
+                )}
+                {heroType === 'video' && heroUrl ? (
+                  <video
+                    className="hero-video"
+                    src={heroUrl}
+                    autoPlay
+                    muted
+                    loop
+                    preload="auto"
+                    playsInline
+                    aria-label="Portal hero background"
+                  />
+                ) : heroUrl ? (
+                  <img
+                    className="hero-video"
+                    src={heroUrl}
+                    alt="Portal hero background"
+                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <div className="hero-video hero-gradient-fallback" />
+                )}
+                <div
+                  className="hero-overlay"
+                  style={{ opacity: portalConfig.theme?.heroOverlayOpacity ?? 0.4 }}
                 />
-                <div className="hero-overlay" />
                 <motion.div
                   className="hero-content"
                   initial="hidden"
@@ -684,7 +871,7 @@ const Home = () => {
                     hidden: { opacity: 0 },
                     visible: {
                       opacity: 1,
-                      transition: { staggerChildren: 0.15, delayChildren: 1.0 },
+                      transition: { staggerChildren: 0.15, delayChildren: 0.6 },
                     },
                   }}
                 >
@@ -695,20 +882,47 @@ const Home = () => {
                     }}
                     transition={{ type: 'spring', damping: 20, stiffness: 100 }}
                   >
-                    Welcome to the Portal
+                    {portalTitle}
                   </motion.h1>
-                  <motion.p
-                    variants={{
-                      hidden: { opacity: 0, y: 20 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                  >
-
-                  </motion.p>
+                  {portalSubtitle && (
+                    <motion.p
+                      className="hero-subtitle"
+                      variants={{
+                        hidden: { opacity: 0, y: 20 },
+                        visible: { opacity: 1, y: 0 },
+                      }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
+                    >
+                      {portalSubtitle}
+                    </motion.p>
+                  )}
                 </motion.div>
               </section>
 
+              {/* Highlights */}
+              {portalConfig.highlights && portalConfig.highlights.length > 0 && (
+                <section className="portal-highlights">
+                  <div className="portal-highlights-grid">
+                    {portalConfig.highlights.map((h, idx) => (
+                      <motion.div
+                        key={h.id || idx}
+                        className="portal-highlight-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: idx * 0.1 }}
+                      >
+                        {h.image && <img src={h.image} alt={h.title} className="portal-highlight-img" />}
+                        <div className="portal-highlight-body">
+                          {h.label && <span className="portal-highlight-label">{h.label}</span>}
+                          <h3>{h.title}</h3>
+                          {h.description && <p>{h.description}</p>}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </motion.div>
           )}
 
@@ -723,13 +937,10 @@ const Home = () => {
                 {STEPS.map((step, idx) => {
                   const isComplete = currentStep > idx;
                   const isActive = currentStep === idx;
-
                   return (
                     <React.Fragment key={step.id}>
                       <div className="stepper-item">
-                        <div
-                          className={`stepper-node${isComplete ? ' is-complete' : ''}${isActive ? ' is-active' : ''}`}
-                        >
+                        <div className={`stepper-node${isComplete ? ' is-complete' : ''}${isActive ? ' is-active' : ''}`}>
                           <StepGlyph stepId={step.id} />
                         </div>
                         <span className={`stepper-label${isActive ? ' is-active' : ''}${isComplete ? ' is-complete' : ''}`}>
@@ -745,6 +956,7 @@ const Home = () => {
               </div>
 
               <div className="wizard-card">
+                {/* Step 1: Upload Documents */}
                 {currentStep === 1 && (
                   <div className="space-y-8">
                     <div className="wizard-header">
@@ -753,45 +965,27 @@ const Home = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <UploadCard
-                        label="Passport Front"
-                        icon="Passport"
-                        file={files.passport_front}
-                        onFileSelect={handleFileSelect}
-                        fieldName="passport_front"
-                        helperText="Ensure the photo page is clear and glare-free."
-                      />
-                      <UploadCard
-                        label="Passport Back"
-                        icon="Address"
-                        file={files.passport_back}
-                        onFileSelect={handleFileSelect}
-                        fieldName="passport_back"
-                        helperText="Upload the address page from your passport."
-                      />
-                      <UploadCard
-                        label="PAN Card"
-                        icon="PAN"
-                        file={files.pan_card}
-                        onFileSelect={handleFileSelect}
-                        fieldName="pan_card"
-                        helperText="Capture the full card within the frame."
-                      />
+                      {docFields.map((doc) => (
+                        <UploadCard
+                          key={doc.key}
+                          label={doc.label}
+                          icon={doc.key === 'passport_front' ? 'Passport' : doc.key === 'passport_back' ? 'Address' : 'PAN'}
+                          file={files[doc.key]}
+                          onFileSelect={handleFileSelect}
+                          fieldName={doc.key}
+                          helperText={doc.helperText}
+                        />
+                      ))}
                     </div>
 
                     <div className="wizard-actions">
                       <button
                         type="button"
-                        onClick={() => {
-                          processDocuments();
+                        onClick={async () => {
+                          void processDocuments();
                           goToStep(2);
                         }}
-                        disabled={
-                          isProcessing ||
-                          !files.passport_front ||
-                          !files.passport_back ||
-                          !files.pan_card
-                        }
+                        disabled={isProcessing || !canProcessDocumentsForAnalysis}
                         className="cta-primary cta-primary-wide"
                       >
                         Analyze Documents
@@ -804,6 +998,7 @@ const Home = () => {
                   </div>
                 )}
 
+                {/* Step 2: Selfie */}
                 {currentStep === 2 && (
                   <div className="space-y-8">
                     <div className="wizard-header">
@@ -814,19 +1009,19 @@ const Home = () => {
                     <div className="selfie-panel">
                       <div className="selfie-panel-title">
                         <HiOutlineInformationCircle />
-                        <span>Profile Photo</span>
+                        <span>{selfieDoc.label}</span>
                       </div>
                       <p className="processing-selfie-copy">
                         Please upload a clear selfie in good lighting. We&apos;ll use it for the
                         final registration record.
                       </p>
                       <UploadCard
-                        label="Profile Photo"
+                        label={selfieDoc.label}
                         icon="Selfie"
                         file={files.selfie}
                         onFileSelect={handleFileSelect}
                         fieldName="selfie"
-                        helperText="Look straight into the camera in good lighting."
+                        helperText={selfieDoc.helperText}
                       />
                     </div>
 
@@ -834,37 +1029,34 @@ const Home = () => {
                       <button
                         type="button"
                         onClick={async () => {
-                          if (!files.selfie) {
+                          if (isSelfieRequired && !files.selfie) {
                             toast.error('Please upload your selfie to continue');
                             return;
                           }
-
-                          if (documentProcessingState === 'success') {
+                          if (documentProcessingState === 'success' || documentProcessingState === 'error') {
                             goToStep(3);
                             return;
                           }
-
-                          if (documentProcessingState === 'error') {
-                            goToStep(3);
-                            return;
-                          }
-
                           setIsAwaitingProcessingResult(true);
                           try {
-                            await processDocuments();
+                            const result = await processDocuments();
+                            if (result?.success) {
+                              goToStep(3);
+                            }
                           } finally {
                             setIsAwaitingProcessingResult(false);
-                            goToStep(3);
                           }
                         }}
-                        disabled={!files.selfie || isAwaitingProcessingResult}
+                        disabled={isAwaitingProcessingResult || (isSelfieRequired && !files.selfie)}
                         className="cta-primary cta-primary-wide"
                       >
                         {isAwaitingProcessingResult
                           ? 'Processing Documents...'
                           : documentProcessingState === 'success'
                             ? 'Continue to Verify Details'
-                            : 'Submit Selfie & Continue'}
+                            : isSelfieRequired
+                              ? 'Submit Selfie & Continue'
+                              : 'Continue to Verify Details'}
                         {!isAwaitingProcessingResult && <HiOutlineArrowRight />}
                       </button>
                       <button type="button" onClick={() => goToStep(1)} className="link-button">
@@ -874,6 +1066,7 @@ const Home = () => {
                   </div>
                 )}
 
+                {/* Step 3: Details */}
                 {currentStep === 3 && (
                   <div className="space-y-8">
                     <div className="wizard-header">
@@ -894,6 +1087,8 @@ const Home = () => {
                       errors={formErrors}
                       selfieFile={files.selfie}
                       files={files}
+                      allowedEmailDomains={portalConfig?.allowedEmailDomains || []}
+                      requiredFormFields={portalConfig?.requiredFormFields || DEFAULT_REQUIRED_FORM_FIELDS}
                     />
 
                     <button
@@ -907,18 +1102,28 @@ const Home = () => {
                   </div>
                 )}
 
+                {/* Step 4: Success */}
                 {currentStep === 4 && registrationResult && (
                   <div className="success-panel success-panel-cinematic">
-                    <video
-                      className="success-panel-video"
-                      src="/fire_vid.optimized.mp4"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="auto"
-                      aria-hidden="true"
-                    />
+                    {portalConfig.hero?.type === 'video' && portalConfig.hero?.url ? (
+                      <video
+                        className="success-panel-video"
+                        src={portalConfig.hero.url}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <div
+                        className="success-panel-video hero-gradient-fallback"
+                        style={{
+                          background: `linear-gradient(135deg, ${portalConfig.theme?.primaryColor || '#6366f1'}, ${portalConfig.theme?.accentColor || '#f59e0b'})`,
+                        }}
+                      />
+                    )}
                     <div className="success-panel-overlay" />
                     <motion.div
                       className="success-panel-content"
@@ -944,7 +1149,7 @@ const Home = () => {
                         type="button"
                         onClick={() => {
                           getWizardStorage()?.removeItem(WIZARD_STORAGE_KEY);
-                          window.location.href = '/';
+                          window.location.href = `/${slug}`;
                         }}
                         className="cta-secondary success-panel-button"
                       >
@@ -959,24 +1164,27 @@ const Home = () => {
         </AnimatePresence>
       </main>
 
+      {/* Floating CTA on welcome step */}
       {currentStep === 0 && (
         <motion.div
           className="floating-home-cta"
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 3.0 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 120, delay: 1.5 }}
         >
-          <div className="floating-home-cta-trip">
-            <span>3rd July</span>
-            <div className="floating-home-cta-route" aria-hidden="true">
-              <span className="floating-home-cta-line" />
-              <span className="floating-home-cta-plane" role="img" aria-label="plane">
-                ✈︎
-              </span>
-              <span className="floating-home-cta-line" />
+          {(startDateLabel || endDateLabel) && (
+            <div className="floating-home-cta-trip">
+              <span>{startDateLabel}</span>
+              <div className="floating-home-cta-route" aria-hidden="true">
+                <span className="floating-home-cta-line" />
+                <span className="floating-home-cta-plane" role="img" aria-label="plane">
+                  ✈︎
+                </span>
+                <span className="floating-home-cta-line" />
+              </div>
+              <span>{endDateLabel}</span>
             </div>
-            <span>5th July</span>
-          </div>
+          )}
           <button
             type="button"
             className={`cta-primary floating-home-cta-button${isHeroActive ? ' is-on-hero' : ' is-on-light'}`}
@@ -988,6 +1196,7 @@ const Home = () => {
         </motion.div>
       )}
 
+      {/* Mobile nav */}
       {currentStep > 0 && (
         <nav className="mobile-nav">
           <button
@@ -1027,44 +1236,8 @@ const Home = () => {
         </nav>
       )}
 
+      {/* Processing overlay */}
       <AnimatePresence>
-        {isItineraryOpen && (
-          <motion.div
-            className="overlay-shell overlay-shell-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsItineraryOpen(false)}
-          >
-            <motion.div
-              className="itinerary-modal"
-              initial={{ opacity: 0, y: 24, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.96 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 24 }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="overlay-close overlay-close-light"
-                aria-label="Close itinerary message"
-                onClick={() => setIsItineraryOpen(false)}
-              >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-              <img
-                src={itineraryImage}
-                alt="Itinerary visual"
-                className="overlay-image overlay-image-wide"
-              />
-              <div className="overlay-copy">
-                <span className="overlay-kicker">Itinerary</span>
-                <h3>Itinerary is being prepared</h3>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-
         {isProcessing && isAwaitingProcessingResult && (
           <motion.div
             className="processing-overlay"
@@ -1079,42 +1252,6 @@ const Home = () => {
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 240, damping: 24 }}
             >
-              <div className="processing-visual-stack" aria-hidden="true">
-                {PROCESSING_IMAGES.map((image, index) => (
-                  <motion.div
-                    key={image}
-                    className={`processing-photo-card processing-photo-card-${index + 1}`}
-                    initial={
-                      index === 0
-                        ? { x: -72, y: 28, rotate: -24, scale: 0.88, opacity: 0 }
-                        : index === 1
-                          ? { x: 0, y: -54, rotate: 18, scale: 0.84, opacity: 0 }
-                          : { x: 76, y: 34, rotate: 24, scale: 0.88, opacity: 0 }
-                    }
-                    animate={{
-                      opacity: 1,
-                      x: [0, 0, 0],
-                      y: [0, -6, 0],
-                      rotate:
-                        index === 0
-                          ? [-8, -4, -8]
-                          : index === 1
-                            ? [0, 3, 0]
-                            : [8, 5, 8],
-                      scale: [1, 1.02, 1],
-                    }}
-                    transition={{
-                      duration: 2.8 + index * 0.25,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                      delay: index * 0.12,
-                    }}
-                  >
-                    <img src={image} alt="" />
-                  </motion.div>
-                ))}
-              </div>
-
               <div className="processing-copy">
                 <span className="processing-kicker">Analyzing Documents</span>
                 <h3>We&apos;re preparing your details</h3>
@@ -1209,4 +1346,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default PortalLanding;
