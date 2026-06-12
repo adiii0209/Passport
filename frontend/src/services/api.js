@@ -8,6 +8,27 @@ import axios from 'axios';
 // Base URL — uses Vite proxy in development, absolute URL in production
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+/**
+ * Resolves a relative media path (e.g. /api/media/...) using the backend URL.
+ * If VITE_API_URL is an absolute URL, this returns the absolute path.
+ * Otherwise, it returns the relative path.
+ * @param {string} url - The media URL to resolve
+ * @returns {string} - The resolved absolute or relative URL
+ */
+export function resolveMediaUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_URL || '/api';
+  if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+    const backendRoot = apiBase.replace(/\/api\/?$/, '');
+    return `${backendRoot}${url}`;
+  }
+  return url;
+}
+
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000, // 2 minutes — OCR can be slow

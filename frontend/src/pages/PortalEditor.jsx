@@ -14,6 +14,8 @@ import {
   HiOutlineTerminal
 } from 'react-icons/hi';
 import { getPortalById, createPortal, updatePortal, uploadMedia } from '../services/adminApi';
+import { resolveMediaUrl } from '../services/api';
+
 
 const TABS = [
   { id: 'basic', label: 'Basic Info' },
@@ -573,7 +575,7 @@ const PortalEditor = () => {
                             <div className="w-full md:w-64 h-48 bg-[#09090b] border border-white/10 rounded-2xl flex items-center justify-center p-6 flex-shrink-0 relative group overflow-hidden">
                               <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:16px_16px]" />
                               {formData.logo.url ? (
-                                <img src={formData.logo.url} alt="Logo preview" className="max-h-full max-w-full object-contain relative z-10" />
+                                <img src={resolveMediaUrl(formData.logo.url)} alt="Logo preview" className="max-h-full max-w-full object-contain relative z-10" />
                               ) : (
                                 <div className="text-gray-600 text-sm font-medium relative z-10">No logo set</div>
                               )}
@@ -651,9 +653,9 @@ const PortalEditor = () => {
                             <div className="w-full md:w-64 h-48 bg-[#09090b] border border-white/10 rounded-2xl flex items-center justify-center flex-shrink-0 relative overflow-hidden group">
                               {formData.hero.url ? (
                                 formData.hero.type === 'video' ? (
-                                  <video src={formData.hero.url} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" autoPlay muted loop playsInline />
+                                  <video src={resolveMediaUrl(formData.hero.url)} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" autoPlay muted loop playsInline />
                                 ) : (
-                                  <img src={formData.hero.url} alt="Hero preview" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                  <img src={resolveMediaUrl(formData.hero.url)} alt="Hero preview" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                 )
                               ) : (
                                 <div className="text-gray-600 text-sm font-medium z-10">No hero set</div>

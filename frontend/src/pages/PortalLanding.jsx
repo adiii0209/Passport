@@ -140,11 +140,12 @@ function extractDriveFileId(value) {
 function resolveDriveMediaUrl(value, fallbackUrl = '', download = false) {
   const fileId = extractDriveFileId(value);
   if (!fileId) {
-    return fallbackUrl || String(value || '');
+    return api.resolveMediaUrl(fallbackUrl || String(value || ''));
   }
 
-  return `/api/media/${fileId}${download ? '?download=1' : ''}`;
+  return api.resolveMediaUrl(`/api/media/${fileId}${download ? '?download=1' : ''}`);
 }
+
 
 function getFriendlyProcessingError(error) {
   const rawMessage = String(error?.message || error || '').trim();
@@ -1108,7 +1109,7 @@ const PortalLanding = ({ slugOverride = '', basePathOverride }) => {
                     {portalConfig.hero?.type === 'video' && portalConfig.hero?.url ? (
                       <video
                         className="success-panel-video"
-                        src={portalConfig.hero.url}
+                        src={api.resolveMediaUrl(portalConfig.hero.url)}
                         autoPlay
                         muted
                         loop
